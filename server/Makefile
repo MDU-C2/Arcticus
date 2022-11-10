@@ -1,2 +1,2 @@
 make: server.c
-	gcc -o exe server.c -Wall
+	gcc -o exe server.c -lpthread -Wall

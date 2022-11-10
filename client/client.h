@@ -10,6 +10,7 @@
 #include <arpa/inet.h> 
 #include <netinet/in.h> 
 #include <netdb.h>
+#include <pthread.h>
 
 struct ctrl_msg {
     u_int8_t switch_signal_0;
