@@ -20,5 +20,4 @@ struct ctrl_msg {
     u_int8_t pwm_motor1;
     u_int8_t pwm_motor2;
 };
-
 #endif
