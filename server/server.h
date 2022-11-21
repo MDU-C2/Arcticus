@@ -11,6 +11,13 @@
 #include <netinet/in.h> 
 #include <netdb.h>
 #include <pthread.h>
+#include <wiringPi.h>
+#include "opencv2/opencv.hpp"
+#include <iostream>
+#include "base64.h"
+#include "opencv2/highgui.hpp"
+#include <vector>
+#include <string>
 
 struct ctrl_msg {
     u_int8_t switch_signal_0;

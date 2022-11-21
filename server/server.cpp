@@ -1,17 +1,41 @@
 #include "server.h"
-#include "opencv2/opencv.hpp"
-#include <iostream>
-#include "base64.h"
-#include "opencv2/highgui.hpp"
-#include <vector>
-#include <string>
-#include <list>
+
 
 using namespace cv;
 using namespace std;
 #define START 4
 #define MAX_LEN 65535
 int socket_desc;
+
+/*Declaring variables for motor*/
+// motor 1
+int enA = 26; //BCM 12 || Physical 32
+int inA1 = 4; //BCM 23 || Physical 16
+int inA2 = 5; //BCM 24 || Physical 18
+
+//motor 2
+int enB = 23; //BCM 13 || Pysical 33
+int inB1 = 0; //BCM 17 || Pysical 11
+int inB2 = 2; //BCM 27 || Pysical 13
+
+
+
+/*Configuring the PWM*/
+void config_pwm(void)
+{
+    wiringPiSetup();
+    //Motor 1
+    pinMode(enA,PWM_OUTPUT);	/*set GPIO as output */
+    pinMode(inA1,OUTPUT);
+    pinMode(inA2,OUTPUT);
+
+    //Motor 2
+    pinMode(enB,PWM_OUTPUT);	/*set GPIO as output */
+    pinMode(inB1,OUTPUT);
+    pinMode(inB2,OUTPUT);
+}
+
+
 void *receive_ctrl_msg (void *arg) {
     struct sockaddr_in *to_addr = (struct sockaddr_in *)arg;
     struct ctrl_msg *msg = (struct ctrl_msg *)malloc(sizeof(struct ctrl_msg));
@@ -20,11 +44,20 @@ void *receive_ctrl_msg (void *arg) {
         socklen_t len = sizeof(to_addr);
         int bytes = recvfrom(socket_desc, msg, sizeof(*msg), 0, (struct sockaddr *)&to_addr, &len);
         if (bytes == -1) {
-            perror("recvfrom");
-            exit(1);
+          perror("recvfrom");
+          exit(1);
         }
-        /* display message */
-        printf("pwm_motor1 %d\n", msg->pwm_motor1);
+
+        /*Assign direction to the motors*/
+        digitalWrite(inA1, msg->switch_signal_0); // For
+        digitalWrite(inA2, msg->switch_signal_1); // motor 1
+
+        digitalWrite(inB1, msg->switch_signal_2); // For
+        digitalWrite(inB2, msg->switch_signal_3); // motor 2
+
+        /*Assign PWM values to the motors*/
+        pwmWrite(enA, msg->pwm_motor1); //Motor 1
+        pwmWrite(enB, msg->pwm_motor2); //Motor 2
     }
     free(msg);
 }
@@ -72,6 +105,7 @@ void *send_video (void *arg) {
 
 int main(int argc, char **argv)
 {
+    config_pwm();
     int port_nr;
     struct sockaddr_in my_addr;
     struct sockaddr_in to_addr;

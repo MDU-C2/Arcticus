@@ -17,7 +17,13 @@ void *send_ctrl_msg (void *arg) {
     struct sockaddr_in *to_addr = (struct sockaddr_in*)arg;
     int bytes;
     struct ctrl_msg msg = {};
-    msg.pwm_motor1 = 255;
+    msg.pwm_motor1 = 600;
+    msg.pwm_motor2 = 600;
+    msg.switch_signal_0 = 0;
+    msg.switch_signal_1 = 1;
+    msg.switch_signal_2 = 0;
+    msg.switch_signal_3 = 1;
+    
     while (1) {
         bytes = sendto(socket_desc, (struct ctrl_msg*)&msg, sizeof(msg), 0, (struct sockaddr *)to_addr, sizeof(*to_addr));
         if (bytes == -1) {
