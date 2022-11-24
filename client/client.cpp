@@ -7,10 +7,17 @@ using namespace std;
 #define MAX_NR 10
 
 int socket_desc;
-
+struct sockaddr_in global_to_addr;
 static volatile int keep_running = true;
 void handler (int arg) {
     keep_running = false;
+    struct ctrl_msg control_signal = {};
+    int bytes = sendto(socket_desc, (struct ctrl_msg*)&control_signal, sizeof(control_signal), 0, (struct sockaddr*)&global_to_addr, sizeof(global_to_addr));
+    if (bytes == -1) {
+        perror("sendto");
+        exit(1);
+    }
+    exit(1);
 }
 int lin_map (float value, float x_0, float y_0, float x_1, float y_1) {
     int y;
@@ -28,6 +35,7 @@ void* send_ctrl_msg (void* arg) {
     struct ctrl_msg control_signal = {};
     int back[] = { 0, 1};
     int forward[] = { 1, 0};
+    int scaling = 1;
 
     /* window */
     sf::RenderWindow window(sf::VideoMode(800, 600, 32), "Joystick Use", sf::Style::Default);
@@ -69,6 +77,7 @@ void* send_ctrl_msg (void* arg) {
             control_signal.switch_signal_1 = back[1];
             control_signal.switch_signal_2 = back[0];
             control_signal.switch_signal_3 = back[1];
+           // scaling = 0.1;
         }
         int abs_vel = sqrt((speed.x*speed.x) + (speed.y*speed.y));
         int abs_mapped = lin_map(abs_vel, 0, 200, 100, 1024);
@@ -111,7 +120,7 @@ void* receive_video (void* arg) {
     struct sockaddr_in* from_addr = (struct sockaddr_in*)arg;
     std::string encoded;
 
-    while (1) {
+    while (keep_running) {
         socklen_t len = sizeof(from_addr);
 
         char str[MAX_LEN];
@@ -131,7 +140,7 @@ void* receive_video (void* arg) {
         }
         strncpy(str_nr, str, index_stop);
         str_nr[index_stop] = '\0';
-        /* Convert to std::string and remove the number in front*/
+        /* Convert to std::string and remove the number in front */
         encoded = "";
         for (int i = index_stop; i < atoi(str_nr); i++) {
             encoded = encoded + str[i];
@@ -200,6 +209,7 @@ int main(int argc, char** argv) {
     to_addr.sin_family = AF_INET;
     to_addr.sin_port = htons(port_nr);
     to_addr.sin_addr.s_addr = ip_address;
+    global_to_addr = to_addr;
 
     pthread_t receive_thread, send_thread;
     pthread_create(&send_thread, NULL, send_ctrl_msg, &to_addr);
