@@ -22,6 +22,8 @@
 #include "opencv2/highgui.hpp"
 #include <vector>
 #include <signal.h>
+#include <chrono>
+#include <iostream>
 
 struct ctrl_msg {
     u_int8_t switch_signal_0;

@@ -5,6 +5,7 @@ using namespace std;
 
 #define MAX_LEN 65535
 #define MAX_NR 10
+#define JOY_SLEEP 0.05
 
 int socket_desc;
 struct sockaddr_in global_to_addr;
@@ -112,7 +113,7 @@ void* send_ctrl_msg (void* arg) {
             control_signal.pwm_motor1 = 0;
             control_signal.pwm_motor2 = 0;
         }
-        sleep(0.5);
+        sleep(JOY_SLEEP);
     }
     return NULL;
 }
