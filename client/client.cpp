@@ -10,10 +10,6 @@ using namespace std;
 int socket_desc;
 struct sockaddr_in global_to_addr;
 
-
-
-
-
 static volatile int keep_running = true;
 void handler (int arg) {
     keep_running = false;
@@ -78,22 +74,23 @@ void* send_ctrl_msg (void* arg) {
             control_signal.switch_signal_1 = forward[1];
             control_signal.switch_signal_2 = forward[0];
             control_signal.switch_signal_3 = forward[1];
+            scaling = 1;
         } else { /* drive backwards */
             control_signal.switch_signal_0 = back[0];
             control_signal.switch_signal_1 = back[1];
             control_signal.switch_signal_2 = back[0];
             control_signal.switch_signal_3 = back[1];
-           // scaling = 0.1;
+            scaling = 0.1;
         }
         int abs_vel = sqrt((speed.x*speed.x) + (speed.y*speed.y));
         int abs_mapped = lin_map(abs_vel, 0, 200, 100, 1024);
         if (keep_running == true){
             if (speed.x > 0) {
-                control_signal.pwm_motor1 = ((100 - speed.x)/100)*abs_mapped;
-                control_signal.pwm_motor2 = abs_mapped;
+                control_signal.pwm_motor1 = scaling*((100 - speed.x)/100)*abs_mapped;
+                control_signal.pwm_motor2 = scaling*abs_mapped;
             } else {
-                control_signal.pwm_motor2 = ((100 + speed.x)/100)*abs_mapped;
-                control_signal.pwm_motor1 = abs_mapped;
+                control_signal.pwm_motor2 = scaling*((100 + speed.x)/100)*abs_mapped;
+                control_signal.pwm_motor1 = scaling*abs_mapped;
             }
         } else {
             control_signal.pwm_motor1 = 0;
