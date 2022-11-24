@@ -11,7 +11,7 @@ using namespace std;
 int socket_desc;
 
 /*Declaring variables for motor*/
-/* motor 1 */ 
+/* motor 1 */
 int enA = 26; /* BCM 12 || Physical 32 */
 int inA1 = 4; /* BCM 23 || Physical 16 */
 int inA2 = 5; /* BCM 24 || Physical 18 */
@@ -28,56 +28,57 @@ void config_pwm(void)
 {
     wiringPiSetup();
     /* Motor 1 */
-    pinMode(enA,PWM_OUTPUT);    /*set GPIO as output */
-    pinMode(inA1,OUTPUT);
-    pinMode(inA2,OUTPUT);
+    pinMode(enA, PWM_OUTPUT);    /*set GPIO as output */
+    pinMode(inA1, OUTPUT);
+    pinMode(inA2, OUTPUT);
 
     /* Motor 2 */
-    pinMode(enB,PWM_OUTPUT);    /*set GPIO as output */
-    pinMode(inB1,OUTPUT);
-    pinMode(inB2,OUTPUT);
+    pinMode(enB, PWM_OUTPUT);    /*set GPIO as output */
+    pinMode(inB1, OUTPUT);
+    pinMode(inB2, OUTPUT);
 }
 static volatile int keep_running = true;
 void handler(int arg) {
-    pwmWrite(enA, 0); 
-    pwmWrite(enB, 0); 
+    pwmWrite(enA, 0);
+    pwmWrite(enB, 0);
     keep_running = false;
     exit(1);
 }
 
-void *receive_ctrl_msg (void *arg) {
-    struct sockaddr_in *to_addr = (struct sockaddr_in *)arg;
-    struct ctrl_msg *msg = (struct ctrl_msg *)malloc(sizeof(struct ctrl_msg));
+void* receive_ctrl_msg(void* arg) {
+    struct sockaddr_in* to_addr = (struct sockaddr_in*)arg;
+    struct ctrl_msg* msg = (struct ctrl_msg*)malloc(sizeof(struct ctrl_msg));
     while (keep_running) {
         /* receive message */
         socklen_t len = sizeof(to_addr);
-        int bytes = recvfrom(socket_desc, msg, sizeof(*msg), 0, (struct sockaddr *)&to_addr, &len);
+        int bytes = recvfrom(socket_desc, msg, sizeof(*msg), 0, (struct sockaddr*)&to_addr, &len);
         if (bytes == -1) {
-          perror("recvfrom");
-          exit(1);
+            perror("recvfrom");
+            exit(1);
         }
         /*Assign direction to the motors*/
         digitalWrite(inA1, msg->switch_signal_0); /* For motor1*/
-        digitalWrite(inA2, msg->switch_signal_1); 
+        digitalWrite(inA2, msg->switch_signal_1);
 
         digitalWrite(inB1, msg->switch_signal_2); /* For motor2 */
-        digitalWrite(inB2, msg->switch_signal_3); 
+        digitalWrite(inB2, msg->switch_signal_3);
 
         /*Assign PWM values to the motors*/
-        if (keep_running == true ) {
+        if (keep_running == true) {
             pwmWrite(enA, msg->pwm_motor1); /* Motor 1 */
             pwmWrite(enB, msg->pwm_motor2); /* Motor 2 */
-            printf("pwm 1: %d pwm2: %d\n",msg->pwm_motor1, msg->pwm_motor2);
-        } else {
+            printf("pwm 1: %d pwm2: %d\n", msg->pwm_motor1, msg->pwm_motor2);
+        }
+        else {
             break;
         }
-    
+
     }
     free(msg);
     return NULL;
 }
-void *send_video (void *arg) {
-    struct sockaddr_in *to_addr = (struct sockaddr_in *)arg;
+void* send_video(void* arg) {
+    struct sockaddr_in* to_addr = (struct sockaddr_in*)arg;
     int bytes;
 
     /*Create a video capturing object*/
@@ -87,12 +88,12 @@ void *send_video (void *arg) {
     if (video.isOpened() == false) {
         exit(1);
     }
-    
+
     /*Create a class to save the frame to*/
     cv::Mat frame;
-    
+
     while (video.read(frame) == true && keep_running == true) {
-    
+
         auto tic = Clock::now(); // First timestamp, before encoding
 
         //frame = Mat::zeros(480, 640, CV_8U);
@@ -101,18 +102,18 @@ void *send_video (void *arg) {
         std::vector<int> param(2);
         param[0] = cv::IMWRITE_JPEG_QUALITY;
         param[1] = 20; /* default(95) 0-100 */
-        
+
 
         cv::imencode(".jpg", frame, buf, param);                       /* Encode data from class Mat to JPG */
-        auto *enc_msg = reinterpret_cast<unsigned char *>(buf.data()); /* Cast the JPG to char* */
+        auto* enc_msg = reinterpret_cast<unsigned char*>(buf.data()); /* Cast the JPG to char* */
         std::string encoded = base64_encode(enc_msg, buf.size());      /* Encode the data to base 64 */
         int size = START + encoded.size();
 
         if (size <= MAX_LEN) {
-            encoded.insert(0,to_string(size));
+            encoded.insert(0, to_string(size));
             //printf("len message %d. First element %c\n", encoded.size(), encoded[0]);
 
-            bytes = sendto(socket_desc, encoded.c_str(), size, 0, (struct sockaddr *)to_addr, sizeof(*to_addr));
+            bytes = sendto(socket_desc, encoded.c_str(), size, 0, (struct sockaddr*)to_addr, sizeof(*to_addr));
             if (bytes == -1) {
                 perror("sendto");
             }
@@ -120,18 +121,17 @@ void *send_video (void *arg) {
             enc_msg = NULL;
             encoded.clear();
             auto toc = Clock::now(); //Second timestamp
-            int milliseconds = duration_cast<milliseconds>(toc - tic).count(); // Cadst difference to milliseconds
-            std::cout << "Elapsed time: " << milliseconds << std::endl; // Print difference in milliseconds
+            std::cout << "Elapsed time: " << duration_cast<milliseconds>(toc - tic).count() << std::endl; // Print difference in milliseconds
 
-        /*Save to .csv file*/
-        std::ofstream myFile1("Encode_timestamp.csv", std::ios::app);
-        myFile1 << milliseconds << endl;
+            /*Save to .csv file*/
+            std::ofstream myFile1("Encode_timestamp.csv", std::ios::app);
+            myFile1 << duration_cast<milliseconds>(toc - tic).count() << endl;
         }
     }
     return NULL;
 }
 
-int main(int argc, char **argv) {
+int main(int argc, char** argv) {
     signal(SIGINT, handler); /* handles ctrl+C */
     config_pwm();
     int port_nr;
@@ -145,14 +145,14 @@ int main(int argc, char **argv) {
         exit(1);
     }
     /* extract destination IP address */
-    struct hostent *host = gethostbyname(argv[1]);
+    struct hostent* host = gethostbyname(argv[1]);
 
     if (host == NULL) {
         fprintf(stderr, "unknown host %s\n", argv[1]);
         exit(1);
     }
 
-    in_addr_t ip_address = *((in_addr_t *)(host->h_addr));
+    in_addr_t ip_address = *((in_addr_t*)(host->h_addr));
 
     /* extract local port number */
     if (sscanf(argv[2], "%d", &port_nr) != 1) {
@@ -170,7 +170,7 @@ int main(int argc, char **argv) {
     my_addr.sin_family = AF_INET;
     my_addr.sin_port = htons(port_nr);
     my_addr.sin_addr.s_addr = htonl(INADDR_ANY);
-    bytes = bind(socket_desc, (struct sockaddr *)&my_addr, sizeof(my_addr));
+    bytes = bind(socket_desc, (struct sockaddr*)&my_addr, sizeof(my_addr));
     if (bytes == -1) {
         perror("bind");
         exit(1);
