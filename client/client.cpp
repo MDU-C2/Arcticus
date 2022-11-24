@@ -9,6 +9,14 @@ using namespace std;
 
 int socket_desc;
 
+
+/*Testing stuff*/
+#include <chrono>
+#include <iomanip> // put_time
+#include <fstream>
+#include <sstream> // stringstream
+
+
 static volatile int keep_running = true;
 void handler (int arg) {
     keep_running = false;
@@ -140,6 +148,8 @@ void* receive_video (void* arg) {
         string dec_jpg = base64_decode(encoded); /* Decode the data to base 64 */
         std::vector<uchar> data(dec_jpg.begin(), dec_jpg.end()); /* Cast the data to JPG from base 64 */
         cv::Mat img = cv::imdecode(cv::Mat(data), 1); /* Decode the JPG data to class Mat */
+
+
 
         cv::imshow("Video feed", img);
     }
