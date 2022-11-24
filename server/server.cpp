@@ -1,6 +1,9 @@
 #include "server.h"
 
 
+using namespace std::chrono;
+using Clock = std::chrono::steady_clock;
+
 using namespace cv;
 using namespace std;
 #define START 4
@@ -89,12 +92,16 @@ void *send_video (void *arg) {
     cv::Mat frame;
     
     while (video.read(frame) == true && keep_running == true) {
+    
+        auto tic = Clock::now(); // First timestamp, before encoding
+
         //frame = Mat::zeros(480, 640, CV_8U);
         /*Encoding, frame-> jpg -> base 64*/
         std::vector<uchar> buf;
         std::vector<int> param(2);
         param[0] = cv::IMWRITE_JPEG_QUALITY;
         param[1] = 20; /* default(95) 0-100 */
+        
 
         cv::imencode(".jpg", frame, buf, param);                       /* Encode data from class Mat to JPG */
         auto *enc_msg = reinterpret_cast<unsigned char *>(buf.data()); /* Cast the JPG to char* */
@@ -104,6 +111,7 @@ void *send_video (void *arg) {
         if (size <= MAX_LEN) {
             encoded.insert(0,to_string(size));
             //printf("len message %d. First element %c\n", encoded.size(), encoded[0]);
+
             bytes = sendto(socket_desc, encoded.c_str(), size, 0, (struct sockaddr *)to_addr, sizeof(*to_addr));
             if (bytes == -1) {
                 perror("sendto");
@@ -111,6 +119,10 @@ void *send_video (void *arg) {
             buf.clear();
             enc_msg = NULL;
             encoded.clear();
+            auto toc = Clock::now(); //Second timestamp
+
+            std::cout << "Elapsed time: " << duration_cast<milliseconds>(toc - tic).count() << std::endl; // Print difference in milliseconds
+        
         }
     }
     return NULL;
