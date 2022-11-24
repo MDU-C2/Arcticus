@@ -120,9 +120,11 @@ void *send_video (void *arg) {
             enc_msg = NULL;
             encoded.clear();
             auto toc = Clock::now(); //Second timestamp
+            int milliseconds = duration_cast<milliseconds>(toc - tic).count(); // Cadst difference to milliseconds
+            std::cout << "Elapsed time: " << milliseconds << std::endl; // Print difference in milliseconds
 
-            std::cout << "Elapsed time: " << duration_cast<milliseconds>(toc - tic).count() << std::endl; // Print difference in milliseconds
-        
+            /*Save to .csv file*/
+            std::ofstream myFile2("report_" + milliseconds + ".csv");
         }
     }
     return NULL;
