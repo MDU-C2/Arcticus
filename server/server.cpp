@@ -123,8 +123,9 @@ void *send_video (void *arg) {
             int milliseconds = duration_cast<milliseconds>(toc - tic).count(); // Cadst difference to milliseconds
             std::cout << "Elapsed time: " << milliseconds << std::endl; // Print difference in milliseconds
 
-            /*Save to .csv file*/
-            std::ofstream myFile2("report_" + milliseconds + ".csv");
+        /*Save to .csv file*/
+        std::ofstream myFile1("Encode_timestamp.csv", std::ios::app);
+        myFile1 << milliseconds << endl;
         }
     }
     return NULL;
