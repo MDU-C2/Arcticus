@@ -24,6 +24,9 @@
 #include <signal.h>
 #include <chrono>
 #include <iostream>
+/* RT */
+#include <sys/mman.h> /* Needed for mlockall() */ 
+#include <sys/resource.h> /* Needed for getrusage */
 
 struct ctrl_msg {
     u_int8_t switch_signal_0;

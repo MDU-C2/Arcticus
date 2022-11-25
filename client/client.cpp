@@ -5,7 +5,8 @@ using namespace std;
 
 #define MAX_LEN 65535
 #define MAX_NR 10
-#define JOY_SLEEP 0.05
+#define JOY_SLEEP 0.008      //prio 1 lägst
+#define VIDEO_SLEEP 0.002 //prio 2 högst
 
 int socket_desc;
 struct sockaddr_in global_to_addr;
@@ -38,6 +39,7 @@ void* send_ctrl_msg (void* arg) {
     int back[] = { 0, 1};
     int forward[] = { 1, 0};
     int scaling = 1;
+    struct rusage usage;
 
     /* window */
     sf::RenderWindow window(sf::VideoMode(800, 600, 32), "Joystick Use", sf::Style::Default);
@@ -66,9 +68,9 @@ void* send_ctrl_msg (void* arg) {
     sf::Vector2f speed = sf::Vector2f(0.f,0.f);
 
     while (window.pollEvent(e) || keep_running) {
-        std::cout << "X axis: " << speed.x << std::endl;
-        std::cout << "Y axis: " << speed.y << std::endl;
-
+       // std::cout << "X axis: " << speed.x << std::endl;
+       // std::cout << "Y axis: " << speed.y << std::endl;
+        //tic
         if (speed.y > 0){ /* drive forward */
             control_signal.switch_signal_0 = forward[0];
             control_signal.switch_signal_1 = forward[1];
@@ -106,6 +108,7 @@ void* send_ctrl_msg (void* arg) {
         std::cout << "pwm2: " << control_signal.pwm_motor2 << std::endl;
 
         speed = sf::Vector2f(sf::Joystick::getAxisPosition(0, sf::Joystick::X), sf::Joystick::getAxisPosition(0, sf::Joystick::Y));
+        //toc
         bytes = sendto(socket_desc, (struct ctrl_msg*)&control_signal, sizeof(control_signal), 0, (struct sockaddr*)to_addr, sizeof(*to_addr));
         if (bytes == -1) {
             perror("sendto");
@@ -116,13 +119,15 @@ void* send_ctrl_msg (void* arg) {
             control_signal.pwm_motor2 = 0;
         }
         sleep(JOY_SLEEP);
+       // getrusage(RUSAGE_SELF, &usage);
+       // printf("Major-pagefaults:%ld, Minor Pagefaults:%ld\n", usage.ru_majflt, usage.ru_minflt);
     }
     return NULL;
 }
 void* receive_video (void* arg) {
     struct sockaddr_in* from_addr = (struct sockaddr_in*)arg;
     std::string encoded;
-
+    
     while (keep_running) {
         socklen_t len = sizeof(from_addr);
 
@@ -131,10 +136,12 @@ void* receive_video (void* arg) {
         int index_stop;
 
         int bytes = recvfrom(socket_desc, str, MAX_LEN, 0, (struct sockaddr*)&from_addr, &len);
+        //tic + antingen försumma eller 0.1ms
         if (bytes == -1) {
             perror("recvfrom");
             exit(1);
         }
+        
         for (int i = 0; i < MAX_NR; i++) {
             if (str[i] == '/') {
                 index_stop = i;
@@ -152,9 +159,10 @@ void* receive_video (void* arg) {
         std::vector<uchar> data(dec_jpg.begin(), dec_jpg.end()); /* Cast the data to JPG from base 64 */
         cv::Mat img = cv::imdecode(cv::Mat(data), 1); /* Decode the JPG data to class Mat */
 
-
-
         cv::imshow("Video feed", img);
+        //toc
+        sleep(VIDEO_SLEEP);
+
     }
     return NULL;
 }
@@ -164,6 +172,12 @@ int main(int argc, char** argv) {
     int port_nr;
     struct sockaddr_in to_addr;
     struct sockaddr_in my_addr;
+
+    /* Memory locking. Lock all current and future pages from preventing of being paged */
+    if (mlockall(MCL_CURRENT | MCL_FUTURE )) {
+           perror("mlockall failed:");
+    }
+       
 
     /* check command line arguments */
     if (argc != 3) {

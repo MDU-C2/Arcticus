@@ -8,6 +8,8 @@ using namespace cv;
 using namespace std;
 #define START 4
 #define MAX_LEN 65535
+#define WRITE_SLEEP 0.004 //prio 1 lägst
+#define VIDEO_SLEEP 0.004 //prio 2 högst
 int socket_desc;
 
 /*Declaring variables for motor*/
@@ -48,10 +50,11 @@ void handler(int arg) {
 void* receive_ctrl_msg(void* arg) {
     struct sockaddr_in* to_addr = (struct sockaddr_in*)arg;
     struct ctrl_msg* msg = (struct ctrl_msg*)malloc(sizeof(struct ctrl_msg));
+    socklen_t len = sizeof(to_addr);
     while (keep_running) {
         /* receive message */
-        socklen_t len = sizeof(to_addr);
         int bytes = recvfrom(socket_desc, msg, sizeof(*msg), 0, (struct sockaddr*)&to_addr, &len);
+        //tic
         if (bytes == -1) {
             perror("recvfrom");
             exit(1);
@@ -72,6 +75,7 @@ void* receive_ctrl_msg(void* arg) {
         else {
             break;
         }
+        //toc
 
     }
     free(msg);
@@ -93,11 +97,9 @@ void* send_video(void* arg) {
     cv::Mat frame;
 
     while (video.read(frame) == true && keep_running == true) {
-
-        auto tic = Clock::now(); // First timestamp, before encoding
-
         //frame = Mat::zeros(480, 640, CV_8U);
         /*Encoding, frame-> jpg -> base 64*/
+        //tic
         std::vector<uchar> buf;
         std::vector<int> param(2);
         param[0] = cv::IMWRITE_JPEG_QUALITY;
@@ -112,21 +114,19 @@ void* send_video(void* arg) {
         if (size <= MAX_LEN) {
             encoded.insert(0, to_string(size));
             //printf("len message %d. First element %c\n", encoded.size(), encoded[0]);
-
+            //toc
+            //tic sendto
             bytes = sendto(socket_desc, encoded.c_str(), size, 0, (struct sockaddr*)to_addr, sizeof(*to_addr));
+            //toc 
             if (bytes == -1) {
                 perror("sendto");
             }
             buf.clear();
             enc_msg = NULL;
             encoded.clear();
-            auto toc = Clock::now(); //Second timestamp
-            std::cout << "Elapsed time: " << duration_cast<milliseconds>(toc - tic).count() << std::endl; // Print difference in milliseconds
 
-            /*Save to .csv file*/
-            std::ofstream myFile1("Encode_timestamp.csv", std::ios::app);
-            myFile1 << duration_cast<milliseconds>(toc - tic).count() << endl;
         }
+        
     }
     return NULL;
 }
