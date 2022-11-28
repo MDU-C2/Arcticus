@@ -7,11 +7,30 @@ using namespace std;
 #define MAX_NR 10
 #define JOY_SLEEP 0.008      //prio 1 lägst
 #define VIDEO_SLEEP 0.002 //prio 2 högst
+#define PRE_ALLOCATION_SIZE 10000*1024*1024 /* Öka om du får page faults 100MB pagefault free buffer */
 
 int socket_desc;
 struct sockaddr_in global_to_addr;
 
 static volatile int keep_running = true;
+
+
+
+
+__thread void* stack_start;
+__thread long stack_max_size = 0L;
+
+void check_stack_size() {
+  // address of 'nowhere' approximates end of stack
+  char nowhere;
+  void* stack_end = (void*)&nowhere;
+  // may want to double check stack grows downward on your platform
+  long stack_size = (long)stack_start - (long)stack_end;
+  // update max_stack_size for this thread
+  if (stack_size > stack_max_size)
+    stack_max_size = stack_size;
+}
+
 void handler (int arg) {
     keep_running = false;
     struct ctrl_msg control_signal = {};
@@ -32,7 +51,71 @@ int lin_map (float value, float x_0, float y_0, float x_1, float y_1) {
     }
     return y;
 }
+static void setprio(int prio, int sched)
+{
+    struct sched_param param;
+    // Set realtime priority for this thread
+    param.sched_priority = prio;
+    if (sched_setscheduler(0, sched, &param) < 0)
+        perror("sched_setscheduler");
+}
+void configure_malloc_behavior (void) {
+    /* Now lock all current and future pages 
+        from preventing of being paged */
+    if (mlockall(MCL_CURRENT | MCL_FUTURE))
+        perror("mlockall failed:");
+
+    /* malloc trimming and mmap will generate page faults. Therefore turn them off*/
+    /* Turn off malloc trimming. malloc trimming will generate calls to sbrk*/
+    mallopt(M_TRIM_THRESHOLD, -1);
+
+    /* Turn off mmap usage. */
+    mallopt(M_MMAP_MAX, 0);
+}
+void show_new_pagefault_count(const char* logtext, 
+                const char* allowed_maj,
+                const char* allowed_min)
+{
+    static int last_majflt = 0, last_minflt = 0;
+    struct rusage usage;
+
+    getrusage(RUSAGE_SELF, &usage);
+
+    printf("%-30.30s: Pagefaults, Major:%ld (Allowed %s), " \
+            "Minor:%ld (Allowed %s)\n", logtext,
+            usage.ru_majflt - last_majflt, allowed_maj,
+            usage.ru_minflt - last_minflt, allowed_min);
+
+    last_majflt = usage.ru_majflt; 
+    last_minflt = usage.ru_minflt;
+}
+static void reserve_process_memory(int size)
+{
+    int i;
+    char *buffer = (char*)malloc(size);
+
+    /* Touch each page in this piece of memory to get it mapped into RAM */
+    for (i = 0; i < size; i += sysconf(_SC_PAGESIZE)) {
+        /* Each write to this buffer will generate a pagefault.
+            Once the pagefault is handled a page will be locked in
+            memory and never given back to the system. */
+        buffer[i] = 0;
+    }
+
+    /* buffer will now be released. As Glibc is configured such that it 
+        never gives back memory to the kernel, the memory allocated above is
+        locked for this process. All malloc() and new() calls come from
+        the memory pool reserved and locked above. Issuing free() and
+        delete() does NOT make this locking undone. So, with this locking
+        mechanism we can build C++ applications that will never run into
+        a major/minor pagefault, even with swapping enabled. */
+    free(buffer);
+}
 void* send_ctrl_msg (void* arg) {
+    char nowhere;
+    stack_start = (void*)&nowhere;
+    setprio(sched_get_priority_max(SCHED_RR)-1, SCHED_RR);
+    show_new_pagefault_count("Caused by creating send-thread", ">=0", ">=0");
     struct sockaddr_in* to_addr = (struct sockaddr_in*)arg;
     int bytes;
     struct ctrl_msg control_signal = {};
@@ -119,12 +202,18 @@ void* send_ctrl_msg (void* arg) {
             control_signal.pwm_motor2 = 0;
         }
         sleep(JOY_SLEEP);
+        break; //ta bort sen
        // getrusage(RUSAGE_SELF, &usage);
        // printf("Major-pagefaults:%ld, Minor Pagefaults:%ld\n", usage.ru_majflt, usage.ru_minflt);
     }
+    show_new_pagefault_count("Caused by using send-thread stack", "0", "0");
+    //check_stack_size();
+    //printf("stack size %ld\n", stack_max_size);
     return NULL;
 }
 void* receive_video (void* arg) {
+    setprio(sched_get_priority_max(SCHED_RR), SCHED_RR);
+    show_new_pagefault_count("Caused by creating recv-thread", ">=0", ">=0");
     struct sockaddr_in* from_addr = (struct sockaddr_in*)arg;
     std::string encoded;
     
@@ -162,7 +251,7 @@ void* receive_video (void* arg) {
         cv::imshow("Video feed", img);
         //toc
         sleep(VIDEO_SLEEP);
-
+        break; //ta bort sen
     }
     return NULL;
 }
@@ -173,10 +262,11 @@ int main(int argc, char** argv) {
     struct sockaddr_in to_addr;
     struct sockaddr_in my_addr;
 
+    show_new_pagefault_count("Initial count", ">=0", ">=0");
     /* Memory locking. Lock all current and future pages from preventing of being paged */
-    if (mlockall(MCL_CURRENT | MCL_FUTURE )) {
-           perror("mlockall failed:");
-    }
+    configure_malloc_behavior();
+    show_new_pagefault_count("mlockall() generated", ">=0", ">=0");
+    //reserve_process_memory(PRE_ALLOCATION_SIZE);
        
 
     /* check command line arguments */
@@ -230,11 +320,26 @@ int main(int argc, char** argv) {
     to_addr.sin_addr.s_addr = ip_address;
     global_to_addr = to_addr;
 
-    pthread_t receive_thread, send_thread;
+    /* create rt-threads */
+    pthread_t recv_thread, send_thread;
+    pthread_attr_t recv_attr, send_attr;
+
+    if (pthread_attr_init(&send_attr))
+        printf("error send_attr init\n");
+    if (pthread_attr_setstacksize(&send_attr, 83886080))
+   		printf("error stack size send-thread\n");
+
+    if (pthread_attr_init(&recv_attr))
+        printf("error recv_attr init\n");
+    if (pthread_attr_setstacksize(&recv_attr, 83886080))
+   		printf("error stack size recv-thread\n");
+
+
+
     pthread_create(&send_thread, NULL, send_ctrl_msg, &to_addr);
-    pthread_create(&receive_thread, NULL, receive_video, &to_addr);
+    pthread_create(&recv_thread, NULL, receive_video, &to_addr);
     pthread_join(send_thread, NULL);
-    pthread_join(receive_thread, NULL);
+    pthread_join(recv_thread, NULL);
 
     close(socket_desc);
     return 0;
