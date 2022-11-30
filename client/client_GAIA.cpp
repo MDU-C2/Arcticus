@@ -1,5 +1,6 @@
 #include "client.h"
 
+
 using namespace cv;
 using namespace std;
 using namespace std::chrono;
@@ -41,6 +42,9 @@ void* send_ctrl_msg (void* arg) {
     int forward[] = { 1, 0};
     int scaling = 1;
 
+
+
+
     /* window */
     sf::RenderWindow window(sf::VideoMode(800, 600, 32), "Joystick Use", sf::Style::Default);
     sf::Event e;
@@ -68,6 +72,9 @@ void* send_ctrl_msg (void* arg) {
     sf::Vector2f speed = sf::Vector2f(0.f,0.f);
 
     while (window.pollEvent(e) || keep_running) {
+        /*Tic*/
+        auto tic_send_ctrl_msg = Clock::now(); // First timestamp, before sending 
+
         std::cout << "X axis: " << speed.x << std::endl;
         std::cout << "Y axis: " << speed.y << std::endl;
 
@@ -82,7 +89,7 @@ void* send_ctrl_msg (void* arg) {
             control_signal.switch_signal_1 = back[1];
             control_signal.switch_signal_2 = back[0];
             control_signal.switch_signal_3 = back[1];
-            scaling = 0.1;
+            scaling = 1;
         }
         int abs_vel = sqrt((speed.x*speed.x) + (speed.y*speed.y));
         int abs_mapped = lin_map(abs_vel, 0, 200, 100, 1024);
@@ -109,16 +116,25 @@ void* send_ctrl_msg (void* arg) {
 
         speed = sf::Vector2f(sf::Joystick::getAxisPosition(0, sf::Joystick::X), sf::Joystick::getAxisPosition(0, sf::Joystick::Y));
         bytes = sendto(socket_desc, (struct ctrl_msg*)&control_signal, sizeof(control_signal), 0, (struct sockaddr*)to_addr, sizeof(*to_addr));
+
+
         if (bytes == -1) {
             perror("sendto");
             exit(1);
         }
-        /*25 seconds was normal, we tried 1 and still using?*/
-        if (cv::waitKey(1) >= 0) { 
+        if (cv::waitKey(1) >= 0) {
             control_signal.pwm_motor1 = 0;
             control_signal.pwm_motor2 = 0;
         }
         sleep(JOY_SLEEP);
+
+        /*Toc*/
+        auto toc_send_ctrl_msg = Clock::now(); // Second timestamp, after sending ctrl message
+        std::cout << "Elapsed time sending ctrl message: " << duration_cast<milliseconds>(toc_send_ctrl_msg - tic_send_ctrl_msg).count() << std::endl; // Print difference in milliseconds
+        
+        /*Save to .csv file*/
+        std::ofstream myFile3("sendCtrlMsg_timestamp.csv", std::ios::app);
+        myFile3 << duration_cast<milliseconds>(toc_send_ctrl_msg - tic_send_ctrl_msg).count() << endl;
     }
     return NULL;
 }
@@ -133,17 +149,28 @@ void* receive_video (void* arg) {
         char str_nr[MAX_NR];
         int index_stop;
 
+
+
+        /*Receive video message*/
         int bytes = recvfrom(socket_desc, str, MAX_LEN, 0, (struct sockaddr*)&from_addr, &len);
         if (bytes == -1) {
             perror("recvfrom");
             exit(1);
         }
+
+        /*Tic*/
+        auto tic_rcv_video = Clock::now(); //First timestamp, before receiving video
+
+
+        /*Ugly fix to what?*/
         for (int i = 0; i < MAX_NR; i++) {
             if (str[i] == '/') {
                 index_stop = i;
                 break;
             }
         }
+
+        /*Ugly fix to what?*/
         strncpy(str_nr, str, index_stop);
         str_nr[index_stop] = '\0';
         /* Convert to std::string and remove the number in front */
@@ -151,13 +178,22 @@ void* receive_video (void* arg) {
         for (int i = index_stop; i < atoi(str_nr); i++) {
             encoded = encoded + str[i];
         }
+
+        /*Decode part*/
         string dec_jpg = base64_decode(encoded); /* Decode the data to base 64 */
         std::vector<uchar> data(dec_jpg.begin(), dec_jpg.end()); /* Cast the data to JPG from base 64 */
         cv::Mat img = cv::imdecode(cv::Mat(data), 1); /* Decode the JPG data to class Mat */
 
-
-
+        /*Display the video frames*/
         cv::imshow("Video feed", img);
+
+        /*Toc*/
+        auto toc_rcv_video = Clock::now(); //Second timestamp, after recieving video
+        std::cout << "Elapsed time receiving video: " << duration_cast<milliseconds>(toc_rcv_video - tic_rcv_video).count() << std::endl; // Print difference in milliseconds
+        
+        /*Save to .csv file*/
+        std::ofstream myFile2("rcvVideo_timestamp.csv", std::ios::app);
+        myFile2 << duration_cast<milliseconds>(toc_rcv_video - tic_rcv_video).count() << endl;
     }
     return NULL;
 }
