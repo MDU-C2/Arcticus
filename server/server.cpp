@@ -52,6 +52,10 @@ void* receive_ctrl_msg(void* arg) {
         /* receive message */
         socklen_t len = sizeof(to_addr);
         int bytes = recvfrom(socket_desc, msg, sizeof(*msg), 0, (struct sockaddr*)&to_addr, &len);
+
+        /*Tic*/
+        auto tic_rcv_ctrl_msg = Clock::now(); //First timestamp, before receiving control message
+
         if (bytes == -1) {
             perror("recvfrom");
             exit(1);
@@ -73,6 +77,14 @@ void* receive_ctrl_msg(void* arg) {
             break;
         }
 
+ 
+        /*Toc*/
+        auto toc_rcv_ctrl_msg = Clock::now(); //Second timestamp, after receiving control message
+        std::cout << "Elapsed time receiving ctrl msg: " << duration_cast<milliseconds>(toc_rcv_ctrl_msg - tic_rcv_ctrl_msg).count() << std::endl; // Print difference in milliseconds
+
+        /*Save to .csv file*/
+        std::ofstream myFile1("rcv_ctrl_msg_timestamp.csv", std::ios::app);
+        myFile1 << duration_cast<milliseconds>(toc_send_video - tic_send_video).count() << endl;
     }
     free(msg);
     return NULL;
@@ -91,19 +103,26 @@ void* send_video(void* arg) {
 
     /*Create a class to save the frame to*/
     cv::Mat frame;
+    int width = 640;
+    int height = 480;
+    //frame = Mat::zeros(480, 640, CV_8U);
+    /*Encoding, frame-> jpg -> base 64*/
+    std::vector<uchar> buf;
+    std::vector<int> param(2);
+    param[0] = cv::IMWRITE_JPEG_QUALITY;
+    param[1] = 60; /* default(95) 0-100 */
+
 
     while (video.read(frame) == true && keep_running == true) {
 
-        auto tic = Clock::now(); // First timestamp, before encoding
+        /*Tic*/
+        auto tic_send_video = Clock::now(); // First timestamp, before encoding
+        
+        /*If u want to resize*/
+        //Mat resized_down;
+        //resize(frame, resized_down, Size(width, height), INTER_LINEAR);
 
-        //frame = Mat::zeros(480, 640, CV_8U);
-        /*Encoding, frame-> jpg -> base 64*/
-        std::vector<uchar> buf;
-        std::vector<int> param(2);
-        param[0] = cv::IMWRITE_JPEG_QUALITY;
-        param[1] = 20; /* default(95) 0-100 */
-
-
+        /*Encoding*/
         cv::imencode(".jpg", frame, buf, param);                       /* Encode data from class Mat to JPG */
         auto* enc_msg = reinterpret_cast<unsigned char*>(buf.data()); /* Cast the JPG to char* */
         std::string encoded = base64_encode(enc_msg, buf.size());      /* Encode the data to base 64 */
@@ -112,20 +131,24 @@ void* send_video(void* arg) {
         if (size <= MAX_LEN) {
             encoded.insert(0, to_string(size));
             //printf("len message %d. First element %c\n", encoded.size(), encoded[0]);
-
             bytes = sendto(socket_desc, encoded.c_str(), size, 0, (struct sockaddr*)to_addr, sizeof(*to_addr));
             if (bytes == -1) {
                 perror("sendto");
             }
+
+            /*Clear*/
             buf.clear();
             enc_msg = NULL;
             encoded.clear();
-            auto toc = Clock::now(); //Second timestamp
+
+
+            /*Toc*/
+            auto toc_send_video = Clock::now(); //Second timestamp
             std::cout << "Elapsed time: " << duration_cast<milliseconds>(toc - tic).count() << std::endl; // Print difference in milliseconds
 
             /*Save to .csv file*/
-            std::ofstream myFile1("Encode_timestamp.csv", std::ios::app);
-            myFile1 << duration_cast<milliseconds>(toc - tic).count() << endl;
+            std::ofstream myFile1("Send_video_timestamp.csv", std::ios::app);
+            myFile1 << duration_cast<milliseconds>(toc_send_video - tic_send_video).count() << endl;
         }
     }
     return NULL;

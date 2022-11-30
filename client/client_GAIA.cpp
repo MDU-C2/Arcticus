@@ -126,6 +126,8 @@ void* send_ctrl_msg (void* arg) {
             control_signal.pwm_motor1 = 0;
             control_signal.pwm_motor2 = 0;
         }
+
+        
         sleep(JOY_SLEEP);
 
         /*Toc*/
