@@ -1,6 +1,5 @@
 #include "server.h"
 
-
 using namespace std::chrono;
 using Clock = std::chrono::steady_clock;
 
@@ -8,8 +7,6 @@ using namespace cv;
 using namespace std;
 #define START 4
 #define MAX_LEN 65535
-#define WRITE_SLEEP 0.004 //prio 1 lägst
-#define VIDEO_SLEEP 0.004 //prio 2 högst
 int socket_desc;
 
 /*Declaring variables for motor*/
@@ -23,41 +20,54 @@ int enB = 23; /* BCM 13 || Pysical 33 */
 int inB1 = 0; /* BCM 17 || Pysical 11 */
 int inB2 = 2; /* BCM 27 || Pysical 13 */
 
-
-
 /*Configuring the PWM*/
 void config_pwm(void)
 {
     wiringPiSetup();
     /* Motor 1 */
-    pinMode(enA, PWM_OUTPUT);    /*set GPIO as output */
+    pinMode(enA, PWM_OUTPUT); /*set GPIO as output */
     pinMode(inA1, OUTPUT);
     pinMode(inA2, OUTPUT);
 
     /* Motor 2 */
-    pinMode(enB, PWM_OUTPUT);    /*set GPIO as output */
+    pinMode(enB, PWM_OUTPUT); /*set GPIO as output */
     pinMode(inB1, OUTPUT);
     pinMode(inB2, OUTPUT);
 }
 static volatile int keep_running = true;
-void handler(int arg) {
+void handler(int arg)
+{
     pwmWrite(enA, 0);
     pwmWrite(enB, 0);
     keep_running = false;
     exit(1);
 }
 
-void* receive_ctrl_msg(void* arg) {
-    struct sockaddr_in* to_addr = (struct sockaddr_in*)arg;
-    struct ctrl_msg* msg = (struct ctrl_msg*)malloc(sizeof(struct ctrl_msg));
-    socklen_t len = sizeof(to_addr);
-    while (keep_running) {
+void *receive_ctrl_msg(void *arg)
+{
+    struct sockaddr_in *to_addr = (struct sockaddr_in *)arg;
+    struct ctrl_msg *msg = (struct ctrl_msg *)malloc(sizeof(struct ctrl_msg));
+    while (keep_running)
+    {
         /* receive message */
-        int bytes = recvfrom(socket_desc, msg, sizeof(*msg), 0, (struct sockaddr*)&to_addr, &len);
-        //tic
-        if (bytes == -1) {
+        socklen_t len = sizeof(to_addr);
+        int bytes = recvfrom(socket_desc, msg, sizeof(*msg), 0, (struct sockaddr *)&to_addr, &len);
+        if (bytes == -1)
+        {
             perror("recvfrom");
             exit(1);
+        }
+
+        /*Tic*/
+        auto tic_rcv_ctrl_msg = Clock::now(); // First timestamp, before receiving control message
+
+        printf("pwm 1: %d pwm2: %d\n", msg->pwm_motor1, msg->pwm_motor2);
+        if (msg->pwm_motor1 == 0 && msg->pwm_motor2 == 0)
+        {
+            pwmWrite(enA, msg->pwm_motor1);
+            pwmWrite(enB, msg->pwm_motor2);
+            free(msg);
+            exit(0);
         }
         /*Assign direction to the motors*/
         digitalWrite(inA1, msg->switch_signal_0); /* For motor1*/
@@ -67,71 +77,89 @@ void* receive_ctrl_msg(void* arg) {
         digitalWrite(inB2, msg->switch_signal_3);
 
         /*Assign PWM values to the motors*/
-        if (keep_running == true) {
+        if (keep_running == true)
+        {
             pwmWrite(enA, msg->pwm_motor1); /* Motor 1 */
             pwmWrite(enB, msg->pwm_motor2); /* Motor 2 */
             printf("pwm 1: %d pwm2: %d\n", msg->pwm_motor1, msg->pwm_motor2);
         }
-        else {
+        else
+        {
             break;
         }
-        //toc
 
+        /*Toc*/
+        auto toc_rcv_ctrl_msg = Clock::now();                                                                                                      // Second timestamp, after receiving control message
+        std::cout << "Elapsed time receiving ctrl msg: " << duration_cast<milliseconds>(toc_rcv_ctrl_msg - tic_rcv_ctrl_msg).count() << std::endl; // Print difference in milliseconds
+
+        /*Save to .csv file*/
+        std::ofstream myFile2("rcv_ctrl_msg_timestamp.csv", std::ios::app);
+        myFile2 << duration_cast<milliseconds>(toc_rcv_ctrl_msg - tic_rcv_ctrl_msg).count() << endl;
     }
+
     free(msg);
     return NULL;
 }
-void* send_video(void* arg) {
-    struct sockaddr_in* to_addr = (struct sockaddr_in*)arg;
+
+void *send_video(void *arg)
+{
+    struct sockaddr_in *to_addr = (struct sockaddr_in *)arg;
     int bytes;
 
     /*Create a video capturing object*/
     cv::VideoCapture video(0);
 
     /*Check if camera is opened*/
-    if (video.isOpened() == false) {
+    if (!video.isOpened())
         exit(1);
-    }
-
     /*Create a class to save the frame to*/
     cv::Mat frame;
+    /*Encoding, frame-> jpg -> base 64*/
 
-    while (video.read(frame) == true && keep_running == true) {
-        //frame = Mat::zeros(480, 640, CV_8U);
-        /*Encoding, frame-> jpg -> base 64*/
-        //tic
-        std::vector<uchar> buf;
-        std::vector<int> param(2);
-        param[0] = cv::IMWRITE_JPEG_QUALITY;
-        param[1] = 20; /* default(95) 0-100 */
+    std::vector<uchar> buf;
+    std::vector<int> param(2);
+    param[0] = cv::IMWRITE_JPEG_QUALITY;
+    param[1] = 60; /* default(95) 0-100 */
 
-
-        cv::imencode(".jpg", frame, buf, param);                       /* Encode data from class Mat to JPG */
-        auto* enc_msg = reinterpret_cast<unsigned char*>(buf.data()); /* Cast the JPG to char* */
-        std::string encoded = base64_encode(enc_msg, buf.size());      /* Encode the data to base 64 */
+    while (video.read(frame) == true && keep_running == true)
+    {
+        /*Tic*/
+        auto tic_send_video = Clock::now(); // First timestamp, before encoding
+        // cv::resize(frame, frame, cv::Size(640, 640), 0, 0, INTER_LINEAR);
+        cv::imencode(".jpg", frame, buf, param);                       /* Encode data from cl */
+        auto *enc_msg = reinterpret_cast<unsigned char *>(buf.data()); /* Cast the JPG to char */
+        std::string encoded = base64_encode(enc_msg, buf.size());      /* Encode the data to */
         int size = START + encoded.size();
 
-        if (size <= MAX_LEN) {
+        if (size <= MAX_LEN)
+        {
             encoded.insert(0, to_string(size));
-            //printf("len message %d. First element %c\n", encoded.size(), encoded[0]);
-            //toc
-            //tic sendto
-            bytes = sendto(socket_desc, encoded.c_str(), size, 0, (struct sockaddr*)to_addr, sizeof(*to_addr));
-            //toc 
-            if (bytes == -1) {
+            // printf("len message %d. First element %c\n", encoded.size(), encoded[0]);
+
+            bytes = sendto(socket_desc, encoded.c_str(), size, 0, (struct sockaddr *)to_addr, sizeof(*to_addr));
+            if (bytes == -1)
+            {
                 perror("sendto");
             }
-            buf.clear();
+            // buf.clear();
             enc_msg = NULL;
             encoded.clear();
+            frame.release();
 
+            /*Toc*/
+            auto toc_send_video = Clock::now();                                                                                 // Second timestamp
+            std::cout << "Elapsed time: " << duration_cast<milliseconds>(toc_send_video - tic_send_video).count() << std::endl; // Print difference in milliseconds
+
+            /*Save to .csv file*/
+            std::ofstream myFile1("Send_video_timestamp.csv", std::ios::app);
+            myFile1 << duration_cast<milliseconds>(toc_send_video - tic_send_video).count() << endl;
         }
-        
     }
     return NULL;
 }
 
-int main(int argc, char** argv) {
+int main(int argc, char **argv)
+{
     signal(SIGINT, handler); /* handles ctrl+C */
     config_pwm();
     int port_nr;
@@ -139,30 +167,40 @@ int main(int argc, char** argv) {
     struct sockaddr_in to_addr;
     int bytes;
 
+    /*Clear the .csv files*/
+    std::ofstream myFile1("rcvVideo_timestamp.csv");
+    myFile1 << "";
+    std::ofstream myFile2("sendCtrlMsg_timestamp.csv");
+    myFile2 << "";
+
     /* check command line arguments */
-    if (argc != 3) {
+    if (argc != 3)
+    {
         fprintf(stderr, "usage: %s destination port\n", argv[0]);
         exit(1);
     }
     /* extract destination IP address */
-    struct hostent* host = gethostbyname(argv[1]);
+    struct hostent *host = gethostbyname(argv[1]);
 
-    if (host == NULL) {
+    if (host == NULL)
+    {
         fprintf(stderr, "unknown host %s\n", argv[1]);
         exit(1);
     }
 
-    in_addr_t ip_address = *((in_addr_t*)(host->h_addr));
+    in_addr_t ip_address = *((in_addr_t *)(host->h_addr));
 
     /* extract local port number */
-    if (sscanf(argv[2], "%d", &port_nr) != 1) {
+    if (sscanf(argv[2], "%d", &port_nr) != 1)
+    {
         fprintf(stderr, "invalid port %s\n", argv[2]);
         exit(1);
     }
 
     /* create UDP socket */
     socket_desc = socket(AF_INET, SOCK_DGRAM, 0);
-    if (socket_desc == -1) {
+    if (socket_desc == -1)
+    {
         perror("socket");
         exit(1);
     }
@@ -170,15 +208,17 @@ int main(int argc, char** argv) {
     my_addr.sin_family = AF_INET;
     my_addr.sin_port = htons(port_nr);
     my_addr.sin_addr.s_addr = htonl(INADDR_ANY);
-    bytes = bind(socket_desc, (struct sockaddr*)&my_addr, sizeof(my_addr));
-    if (bytes == -1) {
+    bytes = bind(socket_desc, (struct sockaddr *)&my_addr, sizeof(my_addr));
+    if (bytes == -1)
+    {
         perror("bind");
         exit(1);
     }
     /* allowing broadcast */
     int on = 1;
     bytes = setsockopt(socket_desc, SOL_SOCKET, SO_BROADCAST, &on, sizeof(int));
-    if (bytes == -1) {
+    if (bytes == -1)
+    {
         perror("setsockopt");
         exit(1);
     }
@@ -197,6 +237,3 @@ int main(int argc, char** argv) {
     close(socket_desc);
     return 0;
 }
-
-
-
