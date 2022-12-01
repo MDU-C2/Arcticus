@@ -83,8 +83,8 @@ void* receive_ctrl_msg(void* arg) {
         std::cout << "Elapsed time receiving ctrl msg: " << duration_cast<milliseconds>(toc_rcv_ctrl_msg - tic_rcv_ctrl_msg).count() << std::endl; // Print difference in milliseconds
 
         /*Save to .csv file*/
-        std::ofstream myFile1("rcv_ctrl_msg_timestamp.csv", std::ios::app);
-        myFile1 << duration_cast<milliseconds>(toc_send_video - tic_send_video).count() << endl;
+        std::ofstream myFile2("rcv_ctrl_msg_timestamp.csv", std::ios::app);
+        myFile2 << duration_cast<milliseconds>(toc_rcv_ctrl_msg - tic_rcv_ctrl_msg).count() << endl;
     }
     free(msg);
     return NULL;
@@ -103,9 +103,6 @@ void* send_video(void* arg) {
 
     /*Create a class to save the frame to*/
     cv::Mat frame;
-    int width = 640;
-    int height = 480;
-    //frame = Mat::zeros(480, 640, CV_8U);
     /*Encoding, frame-> jpg -> base 64*/
     std::vector<uchar> buf;
     std::vector<int> param(2);
@@ -117,10 +114,6 @@ void* send_video(void* arg) {
 
         /*Tic*/
         auto tic_send_video = Clock::now(); // First timestamp, before encoding
-        
-        /*If u want to resize*/
-        //Mat resized_down;
-        //resize(frame, resized_down, Size(width, height), INTER_LINEAR);
 
         /*Encoding*/
         cv::imencode(".jpg", frame, buf, param);                       /* Encode data from class Mat to JPG */
@@ -144,7 +137,7 @@ void* send_video(void* arg) {
 
             /*Toc*/
             auto toc_send_video = Clock::now(); //Second timestamp
-            std::cout << "Elapsed time: " << duration_cast<milliseconds>(toc - tic).count() << std::endl; // Print difference in milliseconds
+            std::cout << "Elapsed time: " << duration_cast<milliseconds>(toc_send_video - tic_send_video).count() << std::endl; // Print difference in milliseconds
 
             /*Save to .csv file*/
             std::ofstream myFile1("Send_video_timestamp.csv", std::ios::app);
@@ -161,6 +154,12 @@ int main(int argc, char** argv) {
     struct sockaddr_in my_addr;
     struct sockaddr_in to_addr;
     int bytes;
+
+    /*Clear the .csv files*/
+    std::ofstream myFile1("rcvVideo_timestamp.csv");
+    myFile1<<"";
+    std::ofstream myFile2("sendCtrlMsg_timestamp.csv");
+    myFile2<<"";
 
     /* check command line arguments */
     if (argc != 3) {

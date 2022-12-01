@@ -42,9 +42,6 @@ void* send_ctrl_msg (void* arg) {
     int forward[] = { 1, 0};
     int scaling = 1;
 
-
-
-
     /* window */
     sf::RenderWindow window(sf::VideoMode(800, 600, 32), "Joystick Use", sf::Style::Default);
     sf::Event e;
@@ -126,17 +123,19 @@ void* send_ctrl_msg (void* arg) {
             control_signal.pwm_motor1 = 0;
             control_signal.pwm_motor2 = 0;
         }
-
-        
-        sleep(JOY_SLEEP);
-
         /*Toc*/
         auto toc_send_ctrl_msg = Clock::now(); // Second timestamp, after sending ctrl message
         std::cout << "Elapsed time sending ctrl message: " << duration_cast<milliseconds>(toc_send_ctrl_msg - tic_send_ctrl_msg).count() << std::endl; // Print difference in milliseconds
-        
+
         /*Save to .csv file*/
-        std::ofstream myFile3("sendCtrlMsg_timestamp.csv", std::ios::app);
+        std::ofstream myFile3("sendCtrlMsg_timestamp.csv", std::ios::app );
         myFile3 << duration_cast<milliseconds>(toc_send_ctrl_msg - tic_send_ctrl_msg).count() << endl;
+
+        sleep(JOY_SLEEP);
+
+        
+        
+        
     }
     return NULL;
 }
@@ -205,6 +204,12 @@ int main(int argc, char** argv) {
     int port_nr;
     struct sockaddr_in to_addr;
     struct sockaddr_in my_addr;
+
+    /*Clear the .csv files*/
+    std::ofstream myFile2("rcvVideo_timestamp.csv");
+    myFile2<<"";
+    std::ofstream myFile3("sendCtrlMsg_timestamp.csv");
+    myFile3<<"";
 
     /* check command line arguments */
     if (argc != 3) {
