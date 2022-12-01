@@ -7,10 +7,20 @@ using Clock = std::chrono::steady_clock;
 
 #define MAX_LEN 65535
 #define MAX_NR 10
-#define JOY_SLEEP 0.05
+#define JOY_SLEEP 0.02 //20ms
+#define VIDEO_SLEEP 0.01 //10ms
+#define SEND_PRIO sched_get_priority_max(SCHED_RR)-1//low 98
+#define RECV_PRIO sched_get_priority_max(SCHED_RR)//high 99
 
 int socket_desc;
 struct sockaddr_in global_to_addr;
+static void setprio(int prio, int sched) {
+    struct sched_param param;
+    /* Set realtime priority for this thread */
+    param.sched_priority = prio;
+    if (sched_setscheduler(0, sched, &param) < 0)
+        perror("sched_setscheduler");
+}
 
 static volatile int keep_running = true;
 void handler(int arg)
@@ -38,8 +48,8 @@ int lin_map(float value, float x_0, float y_0, float x_1, float y_1)
     }
     return y;
 }
-void *send_ctrl_msg(void *arg)
-{
+void *send_ctrl_msg(void *arg) {
+    setprio(SEND_PRIO, SCHED_RR);
     struct sockaddr_in *to_addr = (struct sockaddr_in *)arg;
     int bytes;
     struct ctrl_msg control_signal = {};
@@ -58,8 +68,7 @@ void *send_ctrl_msg(void *arg)
 
     window.setVisible(false);
     /* query joystick for settings if it's plugged in */
-    if (sf::Joystick::isConnected(0))
-    {
+    if (sf::Joystick::isConnected(0)) {
         /* check how many buttons joystick number 0 has */
         unsigned int button_count = sf::Joystick::getButtonCount(0);
 
@@ -73,24 +82,20 @@ void *send_ctrl_msg(void *arg)
     /* for movement */
     sf::Vector2f speed = sf::Vector2f(0.f, 0.f);
 
-    while (window.pollEvent(e) || keep_running)
-    {
+    while (window.pollEvent(e) || keep_running) {
         /*Tic*/
         auto tic_send_ctrl_msg = Clock::now(); // First timestamp, before sending
 
         //  std::cout << "X axis: " << speed.x << std::endl;
         // std::cout << "Y axis: " << speed.y << std::endl;
 
-        if (speed.y > 0)
-        { /* drive forward */
+        if (speed.y > 0) { /* drive forward */
             control_signal.switch_signal_0 = forward[0];
             control_signal.switch_signal_1 = forward[1];
             control_signal.switch_signal_2 = forward[0];
             control_signal.switch_signal_3 = forward[1];
             scaling = 1;
-        }
-        else
-        { /* drive backwards */
+        } else { /* drive backwards */
             control_signal.switch_signal_0 = back[0];
             control_signal.switch_signal_1 = back[1];
             control_signal.switch_signal_2 = back[0];
@@ -99,26 +104,19 @@ void *send_ctrl_msg(void *arg)
         }
         int abs_vel = sqrt((speed.x * speed.x) + (speed.y * speed.y));
         int abs_mapped = lin_map(abs_vel, 0, 200, 100, 1024);
-        if (keep_running == true)
-        {
-            if (speed.x > 0)
-            {
+        if (keep_running == true) {
+            if (speed.x > 0) {
                 control_signal.pwm_motor1 = scaling * ((100 - speed.x) / 100) * abs_mapped;
                 control_signal.pwm_motor2 = scaling * abs_mapped;
-            }
-            else
-            {
+            } else {
                 control_signal.pwm_motor2 = scaling * ((100 + speed.x) / 100) * abs_mapped;
                 control_signal.pwm_motor1 = scaling * abs_mapped;
             }
-        }
-        else
-        {
+        } else {
             control_signal.pwm_motor1 = 0;
             control_signal.pwm_motor1 = 0;
             bytes = sendto(socket_desc, (struct ctrl_msg *)&control_signal, sizeof(control_signal), 0, (struct sockaddr *)to_addr, sizeof(*to_addr));
-            if (bytes == -1)
-            {
+            if (bytes == -1) {
                 perror("sendto");
                 exit(1);
             }
@@ -130,13 +128,11 @@ void *send_ctrl_msg(void *arg)
         speed = sf::Vector2f(sf::Joystick::getAxisPosition(0, sf::Joystick::X), sf::Joystick::getAxisPosition(0, sf::Joystick::Y));
         bytes = sendto(socket_desc, (struct ctrl_msg *)&control_signal, sizeof(control_signal), 0, (struct sockaddr *)to_addr, sizeof(*to_addr));
 
-        if (bytes == -1)
-        {
+        if (bytes == -1) {
             perror("sendto");
             exit(1);
         }
-        if (cv::waitKey(1) >= 0)
-        {
+        if (cv::waitKey(1) >= 0) {
             control_signal.pwm_motor1 = 0;
             control_signal.pwm_motor2 = 0;
         }
@@ -154,6 +150,7 @@ void *send_ctrl_msg(void *arg)
 }
 void *receive_video(void *arg)
 {
+    setprio(RECV_PRIO, SCHED_RR);
     struct sockaddr_in *from_addr = (struct sockaddr_in *)arg;
     std::string encoded;
 
@@ -286,6 +283,15 @@ int main(int argc, char **argv)
     global_to_addr = to_addr;
 
     pthread_t receive_thread, send_thread;
+    pthread_attr_t recv_attr, send_attr;
+    if (pthread_attr_init(&send_attr)) {
+        printf("error send_attr init\n");
+    }
+    if (pthread_attr_init(&recv_attr)) {
+        printf("error recv_attr init\n");
+    }
+        
+
     pthread_create(&send_thread, NULL, send_ctrl_msg, &to_addr);
     pthread_create(&receive_thread, NULL, receive_video, &to_addr);
     pthread_join(send_thread, NULL);
