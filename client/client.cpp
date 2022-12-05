@@ -18,7 +18,7 @@ struct sockaddr_in global_to_addr;
 
 /*Parameters for CPU time clock*/
 clock_t start_joystick_clk, end_joystick_clk, start_video_clk, end_video_clk;
-double diff_joystick_clk, diff_video_clk;
+double sendCtrlCPU, rcvVideoCPU;
 
 static void setprio(int prio, int sched) {
     struct sched_param param;
@@ -125,15 +125,15 @@ void *send_ctrl_msg(void *arg) {
         /*Toc*/
         auto toc_send_ctrl_msg = Clock::now(); // Second timestamp, after sending ctrl message
         end_joystick_clk = clock();            // Second timestamp, after sending ctlr message in CPU time 
-        diff_joystick_clk = (double) (end_joystick_clk - start_joystick_clk) / CLOCKS_PER_SEC;
-        //std::cout << "Total CPU time for joystick: " << diff_joystick_clk << std::endl;
+        sendCtrlCPU = (double) (end_joystick_clk - start_joystick_clk) / CLOCKS_PER_SEC;
+        //std::cout << "Total CPU time for joystick: " << sendCtrlCPU << std::endl;
         // std::cout << "Elapsed time sending ctrl message: " << duration_cast<microseconds>(toc_send_ctrl_msg - tic_send_ctrl_msg).count() << std::endl; // Print difference in milliseconds
 
         /*Save to .csv file*/
-        std::ofstream myFile3("sendCtrlMsg_timestamp.csv", std::ios::app);
+        std::ofstream myFile3("sendCtrlTime.csv", std::ios::app);
         myFile3 << duration_cast<milliseconds>(toc_send_ctrl_msg - tic_send_ctrl_msg).count() << endl;
-        std::ofstream myFile4("diff_joystick_clk.csv", std::ios::app );
-        myFile4 << diff_joystick_clk << endl;
+        std::ofstream myFile4("sendCtrlCPU.csv", std::ios::app );
+        myFile4 << sendCtrlCPU << endl;
 
         sleep(JOY_SLEEP);
     }
@@ -164,9 +164,6 @@ void *receive_video(void *arg)
         /*Tic*/
         start_video_clk = clock(); // First timestamp, before receiving video in CPU time
         auto tic_rcv_video = Clock::now(); // First timestamp, before receiving video
-
-
-
 
         /*Ugly fix to what?*/
         for (int i = 0; i < MAX_NR; i++)
@@ -201,16 +198,16 @@ void *receive_video(void *arg)
         auto toc_rcv_video = Clock::now(); // Second timestamp, after recieving video
 
 
-        diff_video_clk = (double) (end_video_clk - start_video_clk) / CLOCKS_PER_SEC;
+        rcvVideoCPU = (double) (end_video_clk - start_video_clk) / CLOCKS_PER_SEC;
         
-        //std::cout << "Total CPU time for video: " << diff_video_clk << std::endl;
+        //std::cout << "Total CPU time for video: " << rcvVideoCPU << std::endl;
        // std::cout << "Elapsed time receiving video: " << duration_cast<milliseconds>(toc_rcv_video - tic_rcv_video).count() << std::endl; // Print difference in milliseconds
 
         /*Save to .csv file*/
-        std::ofstream myFile2("rcvVideo_timestamp.csv", std::ios::app);
+        std::ofstream myFile2("rcvVideoTime.csv", std::ios::app);
         myFile2 << duration_cast<milliseconds>(toc_rcv_video - tic_rcv_video).count() << endl;
-        std::ofstream myFile5("diff_video_clk.csv", std::ios::app );
-        myFile5 << diff_video_clk << endl;
+        std::ofstream myFile5("rcvVideoCPU.csv", std::ios::app );
+        myFile5 << rcvVideoCPU << endl;
     }
     return NULL;
 }
@@ -223,13 +220,13 @@ int main(int argc, char **argv)
     struct sockaddr_in my_addr;
 
     /*Clear the .csv files*/
-    std::ofstream myFile2("rcvVideo_timestamp.csv");
+    std::ofstream myFile2("rcvVideoTime.csv");
     myFile2 << "";
-    std::ofstream myFile3("sendCtrlMsg_timestamp.csv");
+    std::ofstream myFile3("sendCtrlTime.csv");
     myFile3 << "";
-    std::ofstream myFile4("diff_joystick_clk.csv");
+    std::ofstream myFile4("sendCtrlCPU.csv");
     myFile4 << "";
-    std::ofstream myFile5("diff_video_clk.csv");
+    std::ofstream myFile5("rcvVideoCPU.csv");
     myFile5 << "";
 
     /* check command line arguments */
