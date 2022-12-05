@@ -178,8 +178,9 @@ void *receive_video(void *arg)
         }
 
         /*Tic*/
-        auto tic_rcv_video = Clock::now(); // First timestamp, before receiving video
         start_video_clk = clock(); // First timestamp, before receiving video in CPU time
+        auto tic_rcv_video = Clock::now(); // First timestamp, before receiving video
+
 
 
 
@@ -212,13 +213,14 @@ void *receive_video(void *arg)
         cv::imshow("Video feed", img);
 
         /*Toc*/
-        auto toc_rcv_video = Clock::now(); // Second timestamp, after recieving video
         end_video_clk = clock();           // Second timestamp, after receieving video in CPU time
+        auto toc_rcv_video = Clock::now(); // Second timestamp, after recieving video
+
 
         diff_video_clk = (double) (end_video_clk - start_video_clk) / CLOCKS_PER_SEC;
         
-        //std::cout << "Total CPU time for video: " << diff_video_clk << std::endl;
-        std::cout << "Elapsed time receiving video: " << duration_cast<milliseconds>(toc_rcv_video - tic_rcv_video).count() << std::endl; // Print difference in milliseconds
+        std::cout << "Total CPU time for video: " << diff_video_clk << std::endl;
+        //std::cout << "Elapsed time receiving video: " << duration_cast<milliseconds>(toc_rcv_video - tic_rcv_video).count() << std::endl; // Print difference in milliseconds
 
         /*Save to .csv file*/
         std::ofstream myFile2("rcvVideo_timestamp.csv", std::ios::app);
