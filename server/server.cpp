@@ -56,29 +56,39 @@ void* receive_ctrl_msg(void* arg) {
         /* receive message */
         socklen_t len = sizeof(to_addr);
         int bytes = recvfrom(socket_desc, msg, sizeof(*msg), 0, (struct sockaddr*)&to_addr, &len);
-
-        /*Tic*/
-        auto tic_rcv_ctrl_msg = Clock::now(); //First timestamp, before receiving control message
-        start_command_clk = clock();
-
         if (bytes == -1) {
             perror("recvfrom");
             exit(1);
         }
+        /*Tic*/
+        auto tic_rcv_ctrl_msg = Clock::now(); //First timestamp, before receiving control message
+        start_command_clk = clock();
+
+ 
+       if (msg->pwm_motor1 == 0 && msg->pwm_motor2 == 0)
+        {
+            pwmWrite(enA, msg->pwm_motor1);
+            pwmWrite(enB, msg->pwm_motor2);
+            free(msg);
+            exit(0);
+        }
+
         /*Assign direction to the motors*/
         digitalWrite(inA1, msg->switch_signal_0); /* For motor1*/
         digitalWrite(inA2, msg->switch_signal_1);
-
         digitalWrite(inB1, msg->switch_signal_2); /* For motor2 */
         digitalWrite(inB2, msg->switch_signal_3);
 
         /*Assign PWM values to the motors*/
-        if (keep_running == true) {
+        if (keep_running == true)
+        {
             pwmWrite(enA, msg->pwm_motor1); /* Motor 1 */
             pwmWrite(enB, msg->pwm_motor2); /* Motor 2 */
-            printf("pwm 1: %d pwm2: %d\n", msg->pwm_motor1, msg->pwm_motor2);
+            //  printf("pwm 1: %d pwm2: %d\n", msg->pwm_motor1, msg->pwm_motor2);
         }
-        else {
+
+        else
+        {
             break;
         }
 
@@ -107,9 +117,7 @@ void* send_video(void* arg) {
     cv::VideoCapture video(0);
 
     /*Change resolution*/
-    video.set(CAP_PROP_FRAME_WIDTH, 1920);
-    video.set(CAP_PROP_FRAME_HEIGHT, 1080);
-    video.set(CAP_PROP_FPS, 1);
+    video.set(CAP_PROP_FPS, 30);
     /*Check if camera is opened*/
     if (video.isOpened() == false) {
         exit(1);
@@ -176,9 +184,9 @@ int main(int argc, char** argv) {
     int bytes;
 
     /*Clear the .csv files*/
-    std::ofstream myFile1("rcvVideo_timestamp.csv");
+    std::ofstream myFile1("Send_video_timestamp.csv");
     myFile1<<"";
-    std::ofstream myFile2("sendCtrlMsg_timestamp.csv");
+    std::ofstream myFile2("rcv_ctrl_msg_timestamp.csv");
     myFile2<<"";
     std::ofstream myFile3("diff_command_clk.csv");
     myFile3<<"";
