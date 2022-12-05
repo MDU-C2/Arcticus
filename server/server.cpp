@@ -7,6 +7,12 @@ using namespace cv;
 using namespace std;
 #define START 4
 #define MAX_LEN 65535
+
+#define SEND_SLEEP 0.015                           // 15ms
+#define RECV_SLEEP 0.015                           // 15ms
+#define SEND_PRIO sched_get_priority_max(SCHED_RR) // low 99
+#define RECV_PRIO sched_get_priority_max(SCHED_RR)-1 // high 98
+
 int socket_desc;
 
 /*Declaring variables for motor*/
@@ -20,6 +26,14 @@ int enB = 23; /* BCM 13 || Pysical 33 */
 int inB1 = 0; /* BCM 17 || Pysical 11 */
 int inB2 = 2; /* BCM 27 || Pysical 13 */
 
+static void setprio(int prio, int sched)
+{
+    struct sched_param param;
+    /* Set realtime priority for this thread */
+    param.sched_priority = prio;
+    if (sched_setscheduler(0, sched, &param) < 0)
+        perror("sched_setscheduler");
+}
 /*Configuring the PWM*/
 void config_pwm(void)
 {
@@ -45,6 +59,7 @@ void handler(int arg)
 
 void *receive_ctrl_msg(void *arg)
 {
+    setprio(RECV_PRIO, SCHED_RR);
     struct sockaddr_in *to_addr = (struct sockaddr_in *)arg;
     struct ctrl_msg *msg = (struct ctrl_msg *)malloc(sizeof(struct ctrl_msg));
     while (keep_running)
@@ -61,7 +76,7 @@ void *receive_ctrl_msg(void *arg)
         /*Tic*/
         auto tic_rcv_ctrl_msg = Clock::now(); // First timestamp, before receiving control message
 
-        printf("pwm 1: %d pwm2: %d\n", msg->pwm_motor1, msg->pwm_motor2);
+        // printf("pwm 1: %d pwm2: %d\n", msg->pwm_motor1, msg->pwm_motor2);
         if (msg->pwm_motor1 == 0 && msg->pwm_motor2 == 0)
         {
             pwmWrite(enA, msg->pwm_motor1);
@@ -81,7 +96,7 @@ void *receive_ctrl_msg(void *arg)
         {
             pwmWrite(enA, msg->pwm_motor1); /* Motor 1 */
             pwmWrite(enB, msg->pwm_motor2); /* Motor 2 */
-            printf("pwm 1: %d pwm2: %d\n", msg->pwm_motor1, msg->pwm_motor2);
+                                            //  printf("pwm 1: %d pwm2: %d\n", msg->pwm_motor1, msg->pwm_motor2);
         }
         else
         {
@@ -89,8 +104,8 @@ void *receive_ctrl_msg(void *arg)
         }
 
         /*Toc*/
-        auto toc_rcv_ctrl_msg = Clock::now();                                                                                                      // Second timestamp, after receiving control message
-        std::cout << "Elapsed time receiving ctrl msg: " << duration_cast<milliseconds>(toc_rcv_ctrl_msg - tic_rcv_ctrl_msg).count() << std::endl; // Print difference in milliseconds
+        auto toc_rcv_ctrl_msg = Clock::now(); // Second timestamp, after receiving control message
+        // std::cout << "Elapsed time receiving ctrl msg: " << duration_cast<milliseconds>(toc_rcv_ctrl_msg - tic_rcv_ctrl_msg).count() << std::endl; // Print difference in milliseconds
 
         /*Save to .csv file*/
         std::ofstream myFile2("rcv_ctrl_msg_timestamp.csv", std::ios::app);
@@ -103,11 +118,15 @@ void *receive_ctrl_msg(void *arg)
 
 void *send_video(void *arg)
 {
+    setprio(SEND_PRIO, SCHED_RR);
     struct sockaddr_in *to_addr = (struct sockaddr_in *)arg;
     int bytes;
 
     /*Create a video capturing object*/
     cv::VideoCapture video(0);
+
+    /*Change frames, not sure if this works tho*/
+    video.set(CAP_PROP_FPS, 30);
 
     /*Check if camera is opened*/
     if (!video.isOpened())
@@ -126,7 +145,7 @@ void *send_video(void *arg)
         /*Tic*/
         auto tic_send_video = Clock::now(); // First timestamp, before encoding
         // cv::resize(frame, frame, cv::Size(640, 640), 0, 0, INTER_LINEAR);
-        cv::imencode(".jpg", frame, buf, param);                       /* Encode data from cl */
+        cv::imencode(".jpg", frame, buf, param);                       /* Encode data from c */
         auto *enc_msg = reinterpret_cast<unsigned char *>(buf.data()); /* Cast the JPG to char */
         std::string encoded = base64_encode(enc_msg, buf.size());      /* Encode the data to */
         int size = START + encoded.size();
@@ -147,8 +166,8 @@ void *send_video(void *arg)
             frame.release();
 
             /*Toc*/
-            auto toc_send_video = Clock::now();                                                                                 // Second timestamp
-            std::cout << "Elapsed time: " << duration_cast<milliseconds>(toc_send_video - tic_send_video).count() << std::endl; // Print difference in milliseconds
+            auto toc_send_video = Clock::now(); // Second timestamp
+                                                // std::cout << "Elapsed time: " << duration_cast<milliseconds>(toc_send_video - tic_send_video).count() << std::endl; // Print difference in milliseconds
 
             /*Save to .csv file*/
             std::ofstream myFile1("Send_video_timestamp.csv", std::ios::app);

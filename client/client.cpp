@@ -6,14 +6,15 @@ using namespace std::chrono;
 using Clock = std::chrono::steady_clock;
 
 #define MAX_LEN 65535
-#define MAX_NR 10
-#define JOY_SLEEP 0.02 //20ms
-#define VIDEO_SLEEP 0.01 //10ms
+#define MAX_NR 10  
+#define JOY_SLEEP 0.015 //15ms
+#define VIDEO_SLEEP 0.015 //15ms
 #define SEND_PRIO sched_get_priority_max(SCHED_RR)-1//low 98
 #define RECV_PRIO sched_get_priority_max(SCHED_RR)//high 99
 
 int socket_desc;
 struct sockaddr_in global_to_addr;
+
 static void setprio(int prio, int sched) {
     struct sched_param param;
     /* Set realtime priority for this thread */
@@ -57,16 +58,10 @@ void *send_ctrl_msg(void *arg) {
     int forward[] = {1, 0};
     int scaling = 1;
 
-    /* window */
-    sf::RenderWindow window(sf::VideoMode(800, 600, 32), "Joystick Use", sf::Style::Default);
-    sf::Event e;
-
     sf::Joystick::Identification id = sf::Joystick::getIdentification(0);
     std::cout << "\nVendor ID: " << id.vendorId << "\nProduct ID: " << id.productId << std::endl;
     sf::String controller("Joystick Use: " + id.name);
-    window.setTitle(controller);
 
-    window.setVisible(false);
     /* query joystick for settings if it's plugged in */
     if (sf::Joystick::isConnected(0)) {
         /* check how many buttons joystick number 0 has */
@@ -82,7 +77,8 @@ void *send_ctrl_msg(void *arg) {
     /* for movement */
     sf::Vector2f speed = sf::Vector2f(0.f, 0.f);
 
-    while (window.pollEvent(e) || keep_running) {
+    while ( keep_running) {
+        sf::Joystick::update();
         /*Tic*/
         auto tic_send_ctrl_msg = Clock::now(); // First timestamp, before sending
 
@@ -122,8 +118,8 @@ void *send_ctrl_msg(void *arg) {
             }
             exit(1);
         }
-        //  std::cout << "pwm1: " << control_signal.pwm_motor1 << std::endl;
-        //  std::cout << "pwm2: " << control_signal.pwm_motor2 << std::endl;
+          std::cout << "pwm1: " << control_signal.pwm_motor1 << std::endl;
+          std::cout << "pwm2: " << control_signal.pwm_motor2 << std::endl;
 
         speed = sf::Vector2f(sf::Joystick::getAxisPosition(0, sf::Joystick::X), sf::Joystick::getAxisPosition(0, sf::Joystick::Y));
         bytes = sendto(socket_desc, (struct ctrl_msg *)&control_signal, sizeof(control_signal), 0, (struct sockaddr *)to_addr, sizeof(*to_addr));
@@ -256,7 +252,7 @@ int main(int argc, char **argv)
         perror("socket");
         exit(1);
     }
-    /* bound to any local address on the specified port */
+    /* bind to any local address on the specified port */
     my_addr.sin_family = AF_INET;
     my_addr.sin_port = htons(port_nr);
     my_addr.sin_addr.s_addr = htonl(INADDR_ANY);
@@ -284,13 +280,14 @@ int main(int argc, char **argv)
 
     pthread_t receive_thread, send_thread;
     pthread_attr_t recv_attr, send_attr;
+    
     if (pthread_attr_init(&send_attr)) {
         printf("error send_attr init\n");
     }
     if (pthread_attr_init(&recv_attr)) {
         printf("error recv_attr init\n");
     }
-        
+      
 
     pthread_create(&send_thread, NULL, send_ctrl_msg, &to_addr);
     pthread_create(&receive_thread, NULL, receive_video, &to_addr);
