@@ -21,6 +21,10 @@ int enB = 23; /* BCM 13 || Pysical 33 */
 int inB1 = 0; /* BCM 17 || Pysical 11 */
 int inB2 = 2; /* BCM 27 || Pysical 13 */
 
+// include time?
+clock_t start_command_clk, end_command_clk, start_video_clk, end_video_clk;
+double diff_command_clk, diff_video_clk;
+
 
 
 /*Configuring the PWM*/
@@ -55,6 +59,7 @@ void* receive_ctrl_msg(void* arg) {
 
         /*Tic*/
         auto tic_rcv_ctrl_msg = Clock::now(); //First timestamp, before receiving control message
+        start_command_clk = clock();
 
         if (bytes == -1) {
             perror("recvfrom");
@@ -80,11 +85,16 @@ void* receive_ctrl_msg(void* arg) {
  
         /*Toc*/
         auto toc_rcv_ctrl_msg = Clock::now(); //Second timestamp, after receiving control message
+        end_command_clk = clock();
+        diff_command_clk = (double) (end_command_clk - start_command_clk) / CLOCKS_PER_SEC;
+        std::cout << "Total CPU time for command: " << diff_command_clk << std::endl;
         std::cout << "Elapsed time receiving ctrl msg: " << duration_cast<milliseconds>(toc_rcv_ctrl_msg - tic_rcv_ctrl_msg).count() << std::endl; // Print difference in milliseconds
 
         /*Save to .csv file*/
         std::ofstream myFile2("rcv_ctrl_msg_timestamp.csv", std::ios::app);
         myFile2 << duration_cast<milliseconds>(toc_rcv_ctrl_msg - tic_rcv_ctrl_msg).count() << endl;
+        std::ofstream myFile3("diff_command_clk.csv", std::ios::app);
+        myFile3 << diff_command_clk << endl;
     }
     free(msg);
     return NULL;
@@ -96,6 +106,10 @@ void* send_video(void* arg) {
     /*Create a video capturing object*/
     cv::VideoCapture video(0);
 
+    /*Change resolution*/
+    video.set(CAP_PROP_FRAME_WIDTH, 1920);
+    video.set(CAP_PROP_FRAME_HEIGHT, 1080);
+    video.set(CAP_PROP_FPS, 1);
     /*Check if camera is opened*/
     if (video.isOpened() == false) {
         exit(1);
@@ -114,6 +128,7 @@ void* send_video(void* arg) {
 
         /*Tic*/
         auto tic_send_video = Clock::now(); // First timestamp, before encoding
+        start_video_clk = clock();
 
         /*Encoding*/
         cv::imencode(".jpg", frame, buf, param);                       /* Encode data from class Mat to JPG */
@@ -137,11 +152,16 @@ void* send_video(void* arg) {
 
             /*Toc*/
             auto toc_send_video = Clock::now(); //Second timestamp
+            end_video_clk = clock();
+            diff_video_clk = (double) (end_command_clk - start_video_clk) / CLOCKS_PER_SEC;
+            std::cout << "Total CPU time for video: " << diff_video_clk << std::endl;
             std::cout << "Elapsed time: " << duration_cast<milliseconds>(toc_send_video - tic_send_video).count() << std::endl; // Print difference in milliseconds
 
             /*Save to .csv file*/
             std::ofstream myFile1("Send_video_timestamp.csv", std::ios::app);
             myFile1 << duration_cast<milliseconds>(toc_send_video - tic_send_video).count() << endl;
+            std::ofstream myFile4("diff_video_clk.csv", std::ios::app);
+            myFile4 << diff_video_clk << endl;
         }
     }
     return NULL;
@@ -160,6 +180,10 @@ int main(int argc, char** argv) {
     myFile1<<"";
     std::ofstream myFile2("sendCtrlMsg_timestamp.csv");
     myFile2<<"";
+    std::ofstream myFile3("diff_command_clk.csv");
+    myFile3<<"";
+    std::ofstream myFile4("diff_video_clk.csv");
+    myFile4<<"";
 
     /* check command line arguments */
     if (argc != 3) {
