@@ -63,23 +63,6 @@ void *send_ctrl_msg(void *arg) {
     int forward[] = {1, 0};
     int scaling = 1;
 
-
-    sf::Joystick::Identification id = sf::Joystick::getIdentification(0);
-    std::cout << "\nVendor ID: " << id.vendorId << "\nProduct ID: " << id.productId << std::endl;
-    sf::String controller("Joystick Use: " + id.name);
-
-    /* query joystick for settings if it's plugged in */
-    if (sf::Joystick::isConnected(0)) {
-        /* check how many buttons joystick number 0 has */
-        unsigned int button_count = sf::Joystick::getButtonCount(0);
-
-        /* check if joystick number 0 has a Z axis */
-        bool haz_z = sf::Joystick::hasAxis(0, sf::Joystick::Z);
-
-        std::cout << "Button count: " << button_count << std::endl;
-        std::cout << "Has a z-axis: " << haz_z << std::endl;
-    }
-
     /* for movement */
     sf::Vector2f speed = sf::Vector2f(0.f, 0.f);
 
@@ -219,7 +202,7 @@ void *receive_video(void *arg)
         diff_video_clk = (double) (end_video_clk - start_video_clk) / CLOCKS_PER_SEC;
         
         //std::cout << "Total CPU time for video: " << diff_video_clk << std::endl;
-        std::cout << "Elapsed time receiving video: " << duration_cast<milliseconds>(toc_rcv_video - tic_rcv_video).count() << std::endl; // Print difference in milliseconds
+       // std::cout << "Elapsed time receiving video: " << duration_cast<milliseconds>(toc_rcv_video - tic_rcv_video).count() << std::endl; // Print difference in milliseconds
 
         /*Save to .csv file*/
         std::ofstream myFile2("rcvVideo_timestamp.csv", std::ios::app);

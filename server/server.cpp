@@ -110,8 +110,8 @@ void* receive_ctrl_msg(void* arg) {
         auto toc_rcv_ctrl_msg = Clock::now(); //Second timestamp, after receiving control message
         end_command_clk = clock();
         diff_command_clk = (double) (end_command_clk - start_command_clk) / CLOCKS_PER_SEC;
-        std::cout << "Total CPU time for command: " << diff_command_clk << std::endl;
-        std::cout << "Elapsed time receiving ctrl msg: " << duration_cast<milliseconds>(toc_rcv_ctrl_msg - tic_rcv_ctrl_msg).count() << std::endl; // Print difference in milliseconds
+        //std::cout << "Total CPU time for command: " << diff_command_clk << std::endl;
+        //std::cout << "Elapsed time receiving ctrl msg: " << duration_cast<milliseconds>(toc_rcv_ctrl_msg - tic_rcv_ctrl_msg).count() << std::endl; // Print difference in milliseconds
 
         /*Save to .csv file*/
         std::ofstream myFile2("rcv_ctrl_msg_timestamp.csv", std::ios::app);
@@ -176,8 +176,8 @@ void* send_video(void* arg) {
             auto toc_send_video = Clock::now(); //Second timestamp
             end_video_clk = clock();
             diff_video_clk = (double) (end_command_clk - start_video_clk) / CLOCKS_PER_SEC;
-            std::cout << "Total CPU time for video: " << diff_video_clk << std::endl;
-            std::cout << "Elapsed time: " << duration_cast<milliseconds>(toc_send_video - tic_send_video).count() << std::endl; // Print difference in milliseconds
+           // std::cout << "Total CPU time for video: " << diff_video_clk << std::endl;
+           // std::cout << "Elapsed time: " << duration_cast<milliseconds>(toc_send_video - tic_send_video).count() << std::endl; // Print difference in milliseconds
 
             /*Save to .csv file*/
             std::ofstream myFile1("Send_video_timestamp.csv", std::ios::app);
