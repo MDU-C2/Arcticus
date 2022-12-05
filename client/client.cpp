@@ -7,9 +7,10 @@ using Clock = std::chrono::steady_clock;
 
 #define MAX_LEN 65535
 #define MAX_NR 10
+
 #define JOY_SLEEP 0.015 //15ms
-#define VIDEO_SLEEP 0.5 //15ms
-#define SEND_PRIO sched_get_priority_max(SCHED_RR)//low 98
+#define VIDEO_SLEEP 0.015 //15ms
+#define SEND_PRIO sched_get_priority_max(SCHED_RR)-1//low 98
 #define RECV_PRIO sched_get_priority_max(SCHED_RR)//high 99
 
 int socket_desc;
@@ -54,30 +55,13 @@ int lin_map(float value, float x_0, float y_0, float x_1, float y_1)
     return y;
 }
 void *send_ctrl_msg(void *arg) {
-   // setprio(SEND_PRIO, SCHED_RR);
+    setprio(SEND_PRIO, SCHED_RR);
     struct sockaddr_in *to_addr = (struct sockaddr_in *)arg;
     int bytes;
     struct ctrl_msg control_signal = {};
     int back[] = {0, 1};
     int forward[] = {1, 0};
     int scaling = 1;
-
-
-    sf::Joystick::Identification id = sf::Joystick::getIdentification(0);
-    std::cout << "\nVendor ID: " << id.vendorId << "\nProduct ID: " << id.productId << std::endl;
-    sf::String controller("Joystick Use: " + id.name);
-
-    /* query joystick for settings if it's plugged in */
-    if (sf::Joystick::isConnected(0)) {
-        /* check how many buttons joystick number 0 has */
-        unsigned int button_count = sf::Joystick::getButtonCount(0);
-
-        /* check if joystick number 0 has a Z axis */
-        bool haz_z = sf::Joystick::hasAxis(0, sf::Joystick::Z);
-
-        std::cout << "Button count: " << button_count << std::endl;
-        std::cout << "Has a z-axis: " << haz_z << std::endl;
-    }
 
     /* for movement */
     sf::Vector2f speed = sf::Vector2f(0.f, 0.f);
@@ -157,7 +141,7 @@ void *send_ctrl_msg(void *arg) {
 }
 void *receive_video(void *arg)
 {
-  //  setprio(RECV_PRIO, SCHED_RR);
+    setprio(RECV_PRIO, SCHED_RR);
     struct sockaddr_in *from_addr = (struct sockaddr_in *)arg;
     std::string encoded;
 
@@ -219,8 +203,8 @@ void *receive_video(void *arg)
 
         diff_video_clk = (double) (end_video_clk - start_video_clk) / CLOCKS_PER_SEC;
         
-        std::cout << "Total CPU time for video: " << diff_video_clk << std::endl;
-        //std::cout << "Elapsed time receiving video: " << duration_cast<milliseconds>(toc_rcv_video - tic_rcv_video).count() << std::endl; // Print difference in milliseconds
+        //std::cout << "Total CPU time for video: " << diff_video_clk << std::endl;
+       // std::cout << "Elapsed time receiving video: " << duration_cast<milliseconds>(toc_rcv_video - tic_rcv_video).count() << std::endl; // Print difference in milliseconds
 
         /*Save to .csv file*/
         std::ofstream myFile2("rcvVideo_timestamp.csv", std::ios::app);
@@ -316,8 +300,8 @@ int main(int argc, char **argv)
     }
       
 
-    pthread_create(&send_thread, NULL, send_ctrl_msg, &to_addr);
-    pthread_create(&receive_thread, NULL, receive_video, &to_addr);
+    pthread_create(&send_thread, &send_attr, send_ctrl_msg, &to_addr);
+    pthread_create(&receive_thread, &recv_attr, receive_video, &to_addr);
     pthread_join(send_thread, NULL);
     pthread_join(receive_thread, NULL);
  
