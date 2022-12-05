@@ -13,6 +13,11 @@ using Clock = std::chrono::steady_clock;
 int socket_desc;
 struct sockaddr_in global_to_addr;
 
+/*time things*/
+clock_t start_joystick_clk, end_joystick_clk, start_video_clk, end_video_clk;
+double diff_joystick_clk, diff_video_clk;
+
+
 static volatile int keep_running = true;
 void handler (int arg) {
     keep_running = false;
@@ -71,6 +76,7 @@ void* send_ctrl_msg (void* arg) {
     while (window.pollEvent(e) || keep_running) {
         /*Tic*/
         auto tic_send_ctrl_msg = Clock::now(); // First timestamp, before sending 
+        start_joystick_clk = clock();
 
         std::cout << "X axis: " << speed.x << std::endl;
         std::cout << "Y axis: " << speed.y << std::endl;
@@ -125,11 +131,19 @@ void* send_ctrl_msg (void* arg) {
         }
         /*Toc*/
         auto toc_send_ctrl_msg = Clock::now(); // Second timestamp, after sending ctrl message
-        std::cout << "Elapsed time sending ctrl message: " << duration_cast<milliseconds>(toc_send_ctrl_msg - tic_send_ctrl_msg).count() << std::endl; // Print difference in milliseconds
+        end_joystick_clk = clock();
+        diff_joystick_clk = (double) (end_joystick_clk - start_joystick_clk) / CLOCKS_PER_SEC;
+        //std::cout << "Total CPU time for joystick: " << diff_joystick_clk << std::endl;
+        //std::cout << "Elapsed time sending ctrl message: " << duration_cast<milliseconds>(toc_send_ctrl_msg - tic_send_ctrl_msg).count() << std::endl; // Print difference in milliseconds
+
+
 
         /*Save to .csv file*/
         std::ofstream myFile3("sendCtrlMsg_timestamp.csv", std::ios::app );
         myFile3 << duration_cast<milliseconds>(toc_send_ctrl_msg - tic_send_ctrl_msg).count() << endl;
+
+        std::ofstream myFile5("diff_joystick_clk.csv", std::ios::app );
+        myFile5 << diff_joystick_clk << endl;
 
         sleep(JOY_SLEEP);
 
@@ -161,7 +175,7 @@ void* receive_video (void* arg) {
 
         /*Tic*/
         auto tic_rcv_video = Clock::now(); //First timestamp, before receiving video
-
+        start_video_clk = clock();
 
         /*Ugly fix to what?*/
         for (int i = 0; i < MAX_NR; i++) {
@@ -185,16 +199,22 @@ void* receive_video (void* arg) {
         std::vector<uchar> data(dec_jpg.begin(), dec_jpg.end()); /* Cast the data to JPG from base 64 */
         cv::Mat img = cv::imdecode(cv::Mat(data), 1); /* Decode the JPG data to class Mat */
 
-        /*Display the video frames*/
-        cv::imshow("Video feed", img);
+
 
         /*Toc*/
         auto toc_rcv_video = Clock::now(); //Second timestamp, after recieving video
-        std::cout << "Elapsed time receiving video: " << duration_cast<milliseconds>(toc_rcv_video - tic_rcv_video).count() << std::endl; // Print difference in milliseconds
+        end_video_clk = clock();
+        diff_video_clk = (double) (end_video_clk - start_video_clk) / CLOCKS_PER_SEC;
+        std::cout << "Total CPU time for video: " << diff_video_clk << std::endl;
+        //std::cout << "Elapsed time receiving video: " << duration_cast<milliseconds>(toc_rcv_video - tic_rcv_video).count() << std::endl; // Print difference in milliseconds
         
+
         /*Save to .csv file*/
         std::ofstream myFile2("rcvVideo_timestamp.csv", std::ios::app);
         myFile2 << duration_cast<milliseconds>(toc_rcv_video - tic_rcv_video).count() << endl;
+
+        /*Display the video frames*/
+        cv::imshow("Video feed", img);
     }
     return NULL;
 }

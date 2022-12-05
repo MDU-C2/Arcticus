@@ -181,6 +181,8 @@ void *receive_video(void *arg)
         auto tic_rcv_video = Clock::now(); // First timestamp, before receiving video
         start_video_clk = clock(); // First timestamp, before receiving video in CPU time
 
+
+
         /*Ugly fix to what?*/
         for (int i = 0; i < MAX_NR; i++)
         {
@@ -212,10 +214,11 @@ void *receive_video(void *arg)
         /*Toc*/
         auto toc_rcv_video = Clock::now(); // Second timestamp, after recieving video
         end_video_clk = clock();           // Second timestamp, after receieving video in CPU time
+
         diff_video_clk = (double) (end_video_clk - start_video_clk) / CLOCKS_PER_SEC;
         
         //std::cout << "Total CPU time for video: " << diff_video_clk << std::endl;
-        // std::cout << "Elapsed time receiving video: " << duration_cast<milliseconds>(toc_rcv_video - tic_rcv_video).count() << std::endl; // Print difference in milliseconds
+        std::cout << "Elapsed time receiving video: " << duration_cast<milliseconds>(toc_rcv_video - tic_rcv_video).count() << std::endl; // Print difference in milliseconds
 
         /*Save to .csv file*/
         std::ofstream myFile2("rcvVideo_timestamp.csv", std::ios::app);
@@ -302,7 +305,7 @@ int main(int argc, char **argv)
 
     pthread_t receive_thread, send_thread;
     pthread_attr_t recv_attr, send_attr;
-    /*
+    
     if (pthread_attr_init(&send_attr)) {
         printf("error send_attr init\n");
     }
@@ -315,7 +318,7 @@ int main(int argc, char **argv)
     pthread_create(&receive_thread, NULL, receive_video, &to_addr);
     pthread_join(send_thread, NULL);
     pthread_join(receive_thread, NULL);
-*/  
+ 
     printf("CPU clock p s%ld\n", CLOCKS_PER_SEC);
     close(socket_desc);
     return 0;
