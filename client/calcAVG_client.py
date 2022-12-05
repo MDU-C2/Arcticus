@@ -28,7 +28,7 @@ plt.plot(rcvVideoTime, "*")
 plt.xlabel('Samples')
 plt.ylabel('ms')
 plt.title("Timestamps for receiving video in time taken")
-
+plt.show()
 
 ## Some empty lines to make prints clearer ##
 print("------------------------------")
@@ -52,6 +52,7 @@ plt.plot(rcvVideoCPU, "*")
 plt.xlabel('Samples')
 plt.ylabel('ms')
 plt.title("Timestamps for receiving video in CPU-time taken")
+plt.show()
 
 ## Some empty lines to make prints clearer ##
 print("------------------------------")
@@ -75,6 +76,7 @@ plt.plot(sendCtrlTime, "*")
 plt.xlabel('Samples')
 plt.ylabel('ms')
 plt.title("Timestamps for sending control messages in time taken")
+plt.show()
 
 ## Some empty lines to make prints clearer ##
 print("------------------------------")
