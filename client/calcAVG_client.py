@@ -8,6 +8,7 @@ rcvVideoTime = [float(l.split(';')[columnNumber]) for l in open('rcvVideoTime.cs
 rcvVideoCPU = [float(l.split(';')[columnNumber]) for l in open('rcvVideoCPU.csv', 'r').readlines()]
 sendCtrlTime = [float(l.split(';')[columnNumber]) for l in open('sendCtrlTime.csv', 'r').readlines()]
 sendCtrlCPU = [float(l.split(';')[columnNumber]) for l in open('sendCtrlCPU.csv', 'r').readlines()]
+f,axs=plt.subplots(2,2)
 
 
 ## For recieve video, in uptime ##
@@ -24,11 +25,11 @@ print(f'Max value: {max_value}' )
 print(f'Min value: {min_value}' )
 print(f'Standard deviation: {std_dev}' )
 
-plt.plot(rcvVideoTime, "*")
-plt.xlabel('Samples')
-plt.ylabel('ms')
-plt.title("Timestamps for receiving video in time taken")
-plt.show()
+axs[0,0].plot(rcvVideoTime, "*")
+axs[0,0].set_xlabel('Samples')
+axs[0,0].set_ylabel('ms')
+axs[0,0].set_title("Timestamps for receiving video in time taken")
+
 
 ## Some empty lines to make prints clearer ##
 print("------------------------------")
@@ -48,11 +49,11 @@ print(f'Max value: {max_value}' )
 print(f'Min value: {min_value}' )
 print(f'Standard deviation: {std_dev}' )
 
-plt.plot(rcvVideoCPU, "*")
-plt.xlabel('Samples')
-plt.ylabel('ms')
-plt.title("Timestamps for receiving video in CPU-time taken")
-plt.show()
+axs[1,0].plot(rcvVideoCPU, "*")
+axs[1,0].set_xlabel('Samples')
+axs[1,0].set_ylabel('ms')
+axs[1,0].set_title("Timestamps for receiving video in CPU-time taken")
+
 
 ## Some empty lines to make prints clearer ##
 print("------------------------------")
@@ -72,11 +73,11 @@ print(f'Max value: {max_value}' )
 print(f'Min value: {min_value}' )
 print(f'Standard deviation: {std_dev}' )
 
-plt.plot(sendCtrlTime, "*")
-plt.xlabel('Samples')
-plt.ylabel('ms')
-plt.title("Timestamps for sending control messages in time taken")
-plt.show()
+axs[0,1].plot(sendCtrlTime, "*")
+axs[0,1].set_xlabel('Samples')
+axs[0,1].set_ylabel('ms')
+axs[0,1].set_title("Timestamps for sending control messages in time taken")
+
 
 ## Some empty lines to make prints clearer ##
 print("------------------------------")
@@ -96,8 +97,9 @@ print(f'Max value: {max_value}' )
 print(f'Min value: {min_value}' )
 print(f'Standard deviation: {std_dev}' )
 
-plt.plot(sendCtrlCPU, "*")
-plt.xlabel('Samples')
-plt.ylabel('ms')
-plt.title("Timestamps for sending control messages in CPU-time taken")
+axs[1,1].plot(sendCtrlCPU, "*")
+axs[1,1].set_xlabel('Samples')
+axs[1,1].set_ylabel('ms')
+axs[1,1].set_title("Timestamps for sending control messages in CPU-time taken")
+
 plt.show()
