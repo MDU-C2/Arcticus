@@ -7,9 +7,10 @@ using Clock = std::chrono::steady_clock;
 
 #define MAX_LEN 65535
 #define MAX_NR 10
+
 #define JOY_SLEEP 0.015 //15ms
-#define VIDEO_SLEEP 0.5 //15ms
-#define SEND_PRIO sched_get_priority_max(SCHED_RR)//low 98
+#define VIDEO_SLEEP 0.015 //15ms
+#define SEND_PRIO sched_get_priority_max(SCHED_RR)-1//low 98
 #define RECV_PRIO sched_get_priority_max(SCHED_RR)//high 99
 
 int socket_desc;
@@ -54,7 +55,7 @@ int lin_map(float value, float x_0, float y_0, float x_1, float y_1)
     return y;
 }
 void *send_ctrl_msg(void *arg) {
-   // setprio(SEND_PRIO, SCHED_RR);
+    setprio(SEND_PRIO, SCHED_RR);
     struct sockaddr_in *to_addr = (struct sockaddr_in *)arg;
     int bytes;
     struct ctrl_msg control_signal = {};
@@ -157,7 +158,7 @@ void *send_ctrl_msg(void *arg) {
 }
 void *receive_video(void *arg)
 {
-  //  setprio(RECV_PRIO, SCHED_RR);
+    setprio(RECV_PRIO, SCHED_RR);
     struct sockaddr_in *from_addr = (struct sockaddr_in *)arg;
     std::string encoded;
 
@@ -314,8 +315,8 @@ int main(int argc, char **argv)
     }
       
 
-    pthread_create(&send_thread, NULL, send_ctrl_msg, &to_addr);
-    pthread_create(&receive_thread, NULL, receive_video, &to_addr);
+    pthread_create(&send_thread, &send_attr, send_ctrl_msg, &to_addr);
+    pthread_create(&receive_thread, &recv_attr, receive_video, &to_addr);
     pthread_join(send_thread, NULL);
     pthread_join(receive_thread, NULL);
  
