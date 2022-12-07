@@ -55,7 +55,7 @@ int lin_map(float value, float x_0, float y_0, float x_1, float y_1)
     return y;
 }
 void *send_ctrl_msg(void *arg) {
-    setprio(SEND_PRIO, SCHED_RR);
+  //  setprio(SEND_PRIO, SCHED_RR);
     struct sockaddr_in *to_addr = (struct sockaddr_in *)arg;
     int bytes;
     struct ctrl_msg control_signal = {};
@@ -141,7 +141,7 @@ void *send_ctrl_msg(void *arg) {
 }
 void *receive_video(void *arg)
 {
-    setprio(RECV_PRIO, SCHED_RR);
+   // setprio(RECV_PRIO, SCHED_RR);
     struct sockaddr_in *from_addr = (struct sockaddr_in *)arg;
     std::string encoded;
 
@@ -191,6 +191,7 @@ void *receive_video(void *arg)
         cv::Mat img = cv::imdecode(cv::Mat(data), 1);            /* Decode the JPG data to class Mat */
 
         /*Display the video frames*/
+        
         cv::imshow("Video feed", img);
 
         /*Toc*/
@@ -288,13 +289,13 @@ int main(int argc, char **argv)
 
     pthread_t receive_thread, send_thread;
     pthread_attr_t recv_attr, send_attr;
-    
+    /*
     if (pthread_attr_init(&send_attr)) {
         printf("error send_attr init\n");
     }
     if (pthread_attr_init(&recv_attr)) {
         printf("error recv_attr init\n");
-    }
+    }*/
       
 
     pthread_create(&send_thread, &send_attr, send_ctrl_msg, &to_addr);

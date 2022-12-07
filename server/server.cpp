@@ -11,8 +11,8 @@ using namespace std;
 
 #define JOY_SLEEP 0.015 //15ms
 #define VIDEO_SLEEP 0.015 //15ms
-#define SEND_PRIO sched_get_priority_max(SCHED_RR)//low 99
-#define RECV_PRIO sched_get_priority_max(SCHED_RR)-1//high 98
+#define SEND_PRIO sched_get_priority_max(SCHED_RR)//high 99
+#define RECV_PRIO sched_get_priority_max(SCHED_RR)-1//low 98
 
 int socket_desc;
 
@@ -53,7 +53,7 @@ void config_pwm(void)
     pinMode(inB1, OUTPUT);
     pinMode(inB2, OUTPUT);
 }
-static volatile int keep_running = true;
+int keep_running = true;
 void handler(int arg) {
     pwmWrite(enA, 0);
     pwmWrite(enB, 0);
@@ -62,7 +62,7 @@ void handler(int arg) {
 }
 
 void* receive_ctrl_msg(void* arg) {
-    setprio(RECV_PRIO, SCHED_RR);
+    //setprio(RECV_PRIO, SCHED_RR);
     struct sockaddr_in* to_addr = (struct sockaddr_in*)arg;
     struct ctrl_msg* msg = (struct ctrl_msg*)malloc(sizeof(struct ctrl_msg));
     while (keep_running) {
@@ -80,10 +80,12 @@ void* receive_ctrl_msg(void* arg) {
  
        if (msg->pwm_motor1 == 0 && msg->pwm_motor2 == 0)
         {
+            keep_running = false;
             pwmWrite(enA, msg->pwm_motor1);
             pwmWrite(enB, msg->pwm_motor2);
             free(msg);
-            exit(0);
+            msg = NULL;
+            abort();
         }
 
         /*Assign direction to the motors*/
@@ -123,7 +125,7 @@ void* receive_ctrl_msg(void* arg) {
     return NULL;
 }
 void* send_video(void* arg) {
-    setprio(SEND_PRIO, SCHED_RR);
+    //setprio(SEND_PRIO, SCHED_RR);
     struct sockaddr_in* to_addr = (struct sockaddr_in*)arg;
     int bytes;
 
@@ -258,13 +260,13 @@ int main(int argc, char** argv) {
 
     pthread_t send_thread, receive_thread;
     pthread_attr_t recv_attr, send_attr;
-    
+    /*
     if (pthread_attr_init(&send_attr)) {
         printf("error send_attr init\n");
     }
     if (pthread_attr_init(&recv_attr)) {
         printf("error recv_attr init\n");
-    }
+    }*/
 
     pthread_create(&receive_thread, &recv_attr, receive_ctrl_msg, &to_addr);
     pthread_create(&send_thread, &send_attr, send_video, &to_addr);
