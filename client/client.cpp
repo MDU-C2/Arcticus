@@ -7,19 +7,19 @@ using Clock = std::chrono::steady_clock;
 
 #define MAX_LEN 65535
 #define MAX_NR 10
-/*
+
 #define SEND_SLEEP 0.015 //15ms
 #define RECV_SLEEP 0.015 //15ms
 #define SEND_PRIO sched_get_priority_max(SCHED_RR)-1//low 98
 #define RECV_PRIO sched_get_priority_max(SCHED_RR)//high 99
-*/
+
 int socket_desc;
 struct sockaddr_in global_to_addr;
 
 /*Parameters for CPU time clock*/
 clock_t start_joystick_clk, end_joystick_clk, start_video_clk, end_video_clk;
 double sendCtrlCPU, rcvVideoCPU;
-/*
+
 static void setprio(int prio, int sched) {
     struct sched_param param;
     // Set realtime priority for this thread 
@@ -27,7 +27,7 @@ static void setprio(int prio, int sched) {
     if (sched_setscheduler(0, sched, &param) < 0)
         perror("sched_setscheduler");
 }
-*/
+
 static volatile int keep_running = true;
 void handler(int arg)
 {
@@ -55,7 +55,7 @@ int lin_map(float value, float x_0, float y_0, float x_1, float y_1)
     return y;
 }
 void *send_ctrl_msg(void *arg) {
-  //  setprio(SEND_PRIO, SCHED_RR);
+    setprio(SEND_PRIO, SCHED_RR);
     struct sockaddr_in *to_addr = (struct sockaddr_in *)arg;
     int bytes;
     struct ctrl_msg control_signal = {};
@@ -135,13 +135,13 @@ void *send_ctrl_msg(void *arg) {
         std::ofstream myFile4("sendCtrlCPU.csv", std::ios::app );
         myFile4 << sendCtrlCPU << endl;
 
-       // sleep(SEND_SLEEP);
+        sleep(SEND_SLEEP);
     }
     return NULL;
 }
 void *receive_video(void *arg)
 {
-   // setprio(RECV_PRIO, SCHED_RR);
+    setprio(RECV_PRIO, SCHED_RR);
     struct sockaddr_in *from_addr = (struct sockaddr_in *)arg;
     std::string encoded;
 
@@ -209,7 +209,7 @@ void *receive_video(void *arg)
         myFile2 << duration_cast<microseconds>(toc_rcv_video - tic_rcv_video).count() << endl;
         std::ofstream myFile5("rcvVideoCPU.csv", std::ios::app );
         myFile5 << rcvVideoCPU << endl;
-        //sleep(RECV_SLEEP);
+        sleep(RECV_SLEEP);
     }
     return NULL;
 }
@@ -289,18 +289,18 @@ int main(int argc, char **argv)
     global_to_addr = to_addr;
 
     pthread_t receive_thread, send_thread;
-    /*pthread_attr_t recv_attr, send_attr;
+    pthread_attr_t recv_attr, send_attr;
     
     if (pthread_attr_init(&send_attr)) {
         printf("error send_attr init\n");
     }
     if (pthread_attr_init(&recv_attr)) {
         printf("error recv_attr init\n");
-    }*/
+    }
       
 
-    pthread_create(&send_thread, NULL, send_ctrl_msg, &to_addr);
-    pthread_create(&receive_thread, NULL, receive_video, &to_addr);
+    pthread_create(&send_thread, &send_attr, send_ctrl_msg, &to_addr);
+    pthread_create(&receive_thread, &recv_attr, receive_video, &to_addr);
     pthread_join(send_thread, NULL);
     pthread_join(receive_thread, NULL);
  
