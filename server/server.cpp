@@ -1,3 +1,4 @@
+                                                                                  
 #include "server.h"
 
 
@@ -8,12 +9,12 @@ using namespace cv;
 using namespace std;
 #define START 4
 #define MAX_LEN 65535
-
+/*
 #define JOY_SLEEP 0.015 //15ms
 #define VIDEO_SLEEP 0.015 //15ms
-#define SEND_PRIO sched_get_priority_max(SCHED_RR)//high 99
-#define RECV_PRIO sched_get_priority_max(SCHED_RR)-1//low 98
-
+#define SEND_PRIO sched_get_priority_max(SCHED_RR)//low 99
+#define RECV_PRIO sched_get_priority_max(SCHED_RR)-1//high 98
+*/
 int socket_desc;
 
 /*Declaring variables for motor*/
@@ -29,16 +30,17 @@ int inB2 = 2; /* BCM 27 || Pysical 13 */
 
 // include time?
 clock_t start_command_clk, end_command_clk, start_video_clk, end_video_clk;
-double diff_command_clk, diff_video_clk;
 
+double rcvCtrlCPU, sendVideoCPU;
 
+/*
 static void setprio(int prio, int sched) {
     struct sched_param param;
-    /* Set realtime priority for this thread */
+    // Set realtime priority for this thread 
     param.sched_priority = prio;
     if (sched_setscheduler(0, sched, &param) < 0)
         perror("sched_setscheduler");
-}
+}*/
 /*Configuring the PWM*/
 void config_pwm(void)
 {
@@ -62,7 +64,7 @@ void handler(int arg) {
 }
 
 void* receive_ctrl_msg(void* arg) {
-    //setprio(RECV_PRIO, SCHED_RR);
+   // setprio(RECV_PRIO, SCHED_RR);
     struct sockaddr_in* to_addr = (struct sockaddr_in*)arg;
     struct ctrl_msg* msg = (struct ctrl_msg*)malloc(sizeof(struct ctrl_msg));
     while (keep_running) {
@@ -80,16 +82,18 @@ void* receive_ctrl_msg(void* arg) {
  
        if (msg->pwm_motor1 == 0 && msg->pwm_motor2 == 0)
         {
-            keep_running = false;
+//      keep_running=false;
             pwmWrite(enA, msg->pwm_motor1);
-            pwmWrite(enB, msg->pwm_motor2);
+            pwmWrite(enB, msg->pwm_motor2);      
             free(msg);
-            msg = NULL;
+            msg =NULL;
             abort();
+
         }
 
         /*Assign direction to the motors*/
         digitalWrite(inA1, msg->switch_signal_0); /* For motor1*/
+
         digitalWrite(inA2, msg->switch_signal_1);
         digitalWrite(inB1, msg->switch_signal_2); /* For motor2 */
         digitalWrite(inB2, msg->switch_signal_3);
@@ -111,21 +115,23 @@ void* receive_ctrl_msg(void* arg) {
         /*Toc*/
         auto toc_rcv_ctrl_msg = Clock::now(); //Second timestamp, after receiving control message
         end_command_clk = clock();
-        diff_command_clk = (double) (end_command_clk - start_command_clk) / CLOCKS_PER_SEC;
-        //std::cout << "Total CPU time for command: " << diff_command_clk << std::endl;
-        //std::cout << "Elapsed time receiving ctrl msg: " << duration_cast<milliseconds>(toc_rcv_ctrl_msg - tic_rcv_ctrl_msg).count() << std::endl; // Print difference in milliseconds
+        rcvCtrlCPU = (double) (end_command_clk - start_command_clk) / CLOCKS_PER_SEC;
+        //std::cout << "Total CPU time for command: " << rcvCtrlCPU << std::endl;
+        std::cout << "Elapsed time receiving ctrl msg: " << duration_cast<microseconds>(toc_rcv_ctrl_msg - tic_rcv_ctrl_msg).count() << std::endl; // Print difference in milliseconds
 
         /*Save to .csv file*/
-        std::ofstream myFile2("rcv_ctrl_msg_timestamp.csv", std::ios::app);
-        myFile2 << duration_cast<milliseconds>(toc_rcv_ctrl_msg - tic_rcv_ctrl_msg).count() << endl;
-        std::ofstream myFile3("diff_command_clk.csv", std::ios::app);
-        myFile3 << diff_command_clk << endl;
+        std::ofstream myFile2("rcvCtrlTime.csv", std::ios::app);
+        myFile2 << duration_cast<microseconds>(toc_rcv_ctrl_msg - tic_rcv_ctrl_msg).count() << endl;
+        std::ofstream myFile3("rcvCtrlCPU.csv", std::ios::app);
+        myFile3 << rcvCtrlCPU << endl;
+        //sleep(JOY_SLEEP);
     }
     free(msg);
     return NULL;
 }
+
 void* send_video(void* arg) {
-    //setprio(SEND_PRIO, SCHED_RR);
+   // setprio(SEND_PRIO, SCHED_RR);
     struct sockaddr_in* to_addr = (struct sockaddr_in*)arg;
     int bytes;
 
@@ -152,7 +158,8 @@ void* send_video(void* arg) {
 
         /*Tic*/
         auto tic_send_video = Clock::now(); // First timestamp, before encoding
-        start_video_clk = clock();
+
+       start_video_clk = clock();
 
         /*Encoding*/
         cv::imencode(".jpg", frame, buf, param);                       /* Encode data from class Mat to JPG */
@@ -177,15 +184,16 @@ void* send_video(void* arg) {
             /*Toc*/
             auto toc_send_video = Clock::now(); //Second timestamp
             end_video_clk = clock();
-            diff_video_clk = (double) (end_command_clk - start_video_clk) / CLOCKS_PER_SEC;
-           // std::cout << "Total CPU time for video: " << diff_video_clk << std::endl;
+            sendVideoCPU = (double) (end_command_clk - start_video_clk) / CLOCKS_PER_SEC;
+           // std::cout << "Total CPU time for video: " << sendVideoCPU << std::endl;
            // std::cout << "Elapsed time: " << duration_cast<milliseconds>(toc_send_video - tic_send_video).count() << std::endl; // Print difference in milliseconds
 
             /*Save to .csv file*/
-            std::ofstream myFile1("Send_video_timestamp.csv", std::ios::app);
-            myFile1 << duration_cast<milliseconds>(toc_send_video - tic_send_video).count() << endl;
-            std::ofstream myFile4("diff_video_clk.csv", std::ios::app);
-            myFile4 << diff_video_clk << endl;
+            std::ofstream myFile1("sendVideoTime.csv", std::ios::app);
+            myFile1 << duration_cast<microseconds>(toc_send_video - tic_send_video).count() << endl;
+            std::ofstream myFile4("sendVideoCPU.csv", std::ios::app);
+            myFile4 << sendVideoCPU << endl;
+            //sleep(VIDEO_SLEEP);
         }
     }
     return NULL;
@@ -200,13 +208,13 @@ int main(int argc, char** argv) {
     int bytes;
 
     /*Clear the .csv files*/
-    std::ofstream myFile1("Send_video_timestamp.csv");
+    std::ofstream myFile1("sendVideoTime.csv");
     myFile1<<"";
-    std::ofstream myFile2("rcv_ctrl_msg_timestamp.csv");
+    std::ofstream myFile2("rcvCtrlTime.csv");
     myFile2<<"";
-    std::ofstream myFile3("diff_command_clk.csv");
+    std::ofstream myFile3("rcvCtrlCPU.csv");
     myFile3<<"";
-    std::ofstream myFile4("diff_video_clk.csv");
+    std::ofstream myFile4("sendVideoCPU.csv");
     myFile4<<"";
 
     /* check command line arguments */
@@ -214,6 +222,7 @@ int main(int argc, char** argv) {
         fprintf(stderr, "usage: %s destination port\n", argv[0]);
         exit(1);
     }
+
     /* extract destination IP address */
     struct hostent* host = gethostbyname(argv[1]);
 
@@ -245,6 +254,7 @@ int main(int argc, char** argv) {
         perror("bind");
         exit(1);
     }
+
     /* allowing broadcast */
     int on = 1;
     bytes = setsockopt(socket_desc, SOL_SOCKET, SO_BROADCAST, &on, sizeof(int));
@@ -259,8 +269,8 @@ int main(int argc, char** argv) {
     to_addr.sin_addr.s_addr = ip_address;
 
     pthread_t send_thread, receive_thread;
-    pthread_attr_t recv_attr, send_attr;
-    /*
+    /*pthread_attr_t recv_attr, send_attr;
+    
     if (pthread_attr_init(&send_attr)) {
         printf("error send_attr init\n");
     }
@@ -268,14 +278,12 @@ int main(int argc, char** argv) {
         printf("error recv_attr init\n");
     }*/
 
-    pthread_create(&receive_thread, &recv_attr, receive_ctrl_msg, &to_addr);
-    pthread_create(&send_thread, &send_attr, send_video, &to_addr);
+    pthread_create(&receive_thread, NULL, receive_ctrl_msg, &to_addr); //kom ihåg att sätta attr sen på rt
+    pthread_create(&send_thread, NULL, send_video, &to_addr);
     pthread_join(send_thread, NULL);
     pthread_join(receive_thread, NULL);
 
     close(socket_desc);
     return 0;
 }
-
-
 

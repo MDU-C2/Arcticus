@@ -1,1 +1,5 @@
 *.csv
+client/client_inas.cpp
+client/exe
+server/exe
+.vscode
