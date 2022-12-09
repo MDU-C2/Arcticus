@@ -17,6 +17,19 @@ rcvVideoCPU = rcvVideoCPU[30:] # Ugly fix, want to remove first 30 indices
 sendCtrlTime = sendCtrlTime[30:] # Ugly fix, want to remove first 30 indices
 sendCtrlCPU = sendCtrlCPU[30:] # Ugly fix, want to remove first 30 indices
 
+#rcvVideoTime = rcvVideoTime/MS_CONVERTER
+for i in range(len(rcvVideoTime)):
+    rcvVideoTime[i] = rcvVideoTime[i]*(1/MS_CONVERTER)
+#sendCtrlTime = sendCtrlTime/MS_CONVERTER
+for i in range(len(sendCtrlTime)):
+    sendCtrlTime[i] = sendCtrlTime[i]*(1/MS_CONVERTER)
+#rcvVideoCPU = CPU_MS_CONVERTER*rcvVideoCPU
+for i in range(len(rcvVideoCPU)):
+    rcvVideoCPU[i] = rcvVideoCPU[i]*CPU_MS_CONVERTER
+#sendCtrlCPU = CPU_MS_CONVERTER*sendCtrlCPU
+for i in range(len(sendCtrlCPU)):
+    sendCtrlCPU[i] = sendCtrlCPU[i]*CPU_MS_CONVERTER
+
 ## For removing some negative values, not sure why they occur but they affect the results very little ##
 rcvVideoTime = [ele for ele in rcvVideoTime if ele >0]
 rcvVideoCPU = [ele for ele in rcvVideoCPU if ele >0]
@@ -26,10 +39,9 @@ sendCtrlCPU = [ele for ele in sendCtrlCPU if ele >0]
 
 
 ## For recieve video, in uptime ##
-mean = (sum(rcvVideoTime) / len(rcvVideoTime)) / MS_CONVERTER
-max_value = max(rcvVideoTime) / MS_CONVERTER
-min_value = min(rcvVideoTime) /MS_CONVERTER
-std_value = (max_value - min_value)/ MS_CONVERTER
+mean = (sum(rcvVideoTime) / len(rcvVideoTime)) 
+max_value = max(rcvVideoTime) 
+min_value = min(rcvVideoTime) 
 std_dev = np.std(rcvVideoTime, dtype= np.float64)
 
 print("For receiving video, in time taken")
@@ -50,10 +62,10 @@ print("------------------------------")
 print("------------------------------")
 
 ## For recieve video, in CPU time ##
-mean = (sum(rcvVideoCPU) / len(rcvVideoCPU)) * CPU_MS_CONVERTER
-max_value = max(rcvVideoCPU) * CPU_MS_CONVERTER
-min_value = min(rcvVideoCPU) * CPU_MS_CONVERTER
-std_dev = np.std(rcvVideoCPU, dtype= np.float64) * CPU_MS_CONVERTER
+mean = (sum(rcvVideoCPU) / len(rcvVideoCPU)) 
+max_value = max(rcvVideoCPU) 
+min_value = min(rcvVideoCPU) 
+std_dev = np.std(rcvVideoCPU, dtype= np.float64) 
 
 print("For receiving video, in CPU-time taken")
 print(f'Average value: {mean}' )
@@ -73,10 +85,10 @@ print("------------------------------")
 print("------------------------------")
 
 ## For send control message, in uptime ##
-mean = (sum(sendCtrlTime) / len(sendCtrlTime))/MS_CONVERTER
-max_value = max(sendCtrlTime)/MS_CONVERTER
-min_value = min(sendCtrlTime)/MS_CONVERTER
-std_dev = np.std(sendCtrlTime, dtype= np.float64)/MS_CONVERTER
+mean = (sum(sendCtrlTime) / len(sendCtrlTime))
+max_value = max(sendCtrlTime)
+min_value = min(sendCtrlTime)
+std_dev = np.std(sendCtrlTime, dtype= np.float64)
 
 print("For sending control messages, in time taken")
 print(f'Average value: {mean}' )
@@ -96,11 +108,10 @@ print("------------------------------")
 print("------------------------------")
 
 ## For send control message, in CPU ##
-mean = (sum(sendCtrlCPU) / len(sendCtrlCPU)) * CPU_MS_CONVERTER
-max_value = max(sendCtrlCPU) * CPU_MS_CONVERTER
-min_value = min(sendCtrlCPU) * CPU_MS_CONVERTER
-std_value = max_value - min_value * CPU_MS_CONVERTER
-std_dev = np.std(sendCtrlCPU, dtype= np.float64) * CPU_MS_CONVERTER
+mean = (sum(sendCtrlCPU) / len(sendCtrlCPU)) 
+max_value = max(sendCtrlCPU)
+min_value = min(sendCtrlCPU) 
+std_dev = np.std(sendCtrlCPU, dtype= np.float64)
 
 print("For sending control messages, in CPU-time taken")
 print(f'Average value: {mean}' )
