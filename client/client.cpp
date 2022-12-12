@@ -1,5 +1,5 @@
 #include "client.h"
-
+#include <X11/Xlib.h>
 using namespace cv;
 using namespace std;
 using namespace std::chrono;
@@ -8,10 +8,11 @@ using Clock = std::chrono::steady_clock;
 #define MAX_LEN 65535
 #define MAX_NR 10
 
+
 #define SEND_SLEEP 0.015 //15ms
 #define RECV_SLEEP 0.015 //15ms
-#define SEND_PRIO sched_get_priority_max(SCHED_RR)-1//low 98
-#define RECV_PRIO sched_get_priority_max(SCHED_RR)//high 99
+#define SEND_PRIO 79//low 98
+#define RECV_PRIO 80//high 99
 
 int socket_desc;
 struct sockaddr_in global_to_addr;
@@ -215,6 +216,7 @@ void *receive_video(void *arg)
 }
 int main(int argc, char **argv)
 {
+    XInitThreads();
     signal(SIGINT, handler); /* handles ctrl+C signal */
     int bytes;
     int port_nr;
