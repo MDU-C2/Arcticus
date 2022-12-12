@@ -7,10 +7,10 @@ using Clock = std::chrono::steady_clock;
 
 #define MAX_LEN 65535
 #define MAX_NR 10
-/*
+
 #define SEND_SLEEP 0.015 //15ms
 #define RECV_SLEEP 0.015 //15ms
-#define SEND_PRIO sched_get_priority_max(SCHED_RR)-1//low 98
+/*#define SEND_PRIO sched_get_priority_max(SCHED_RR)-1//low 98
 #define RECV_PRIO sched_get_priority_max(SCHED_RR)//high 99
 */
 int socket_desc;
@@ -75,7 +75,7 @@ void *send_ctrl_msg(void *arg) {
         // std::cout << "X axis: " << speed.x << std::endl;
         // std::cout << "Y axis: " << speed.y << std::endl;
 
-        if (speed.y > 0) { /* drive forward */
+        if (speed.y < 0) { /* drive forward */
             control_signal.switch_signal_0 = forward[0];
             control_signal.switch_signal_1 = forward[1];
             control_signal.switch_signal_2 = forward[0];
@@ -135,7 +135,7 @@ void *send_ctrl_msg(void *arg) {
         std::ofstream myFile4("sendCtrlCPU.csv", std::ios::app );
         myFile4 << sendCtrlCPU << endl;
 
-       // sleep(SEND_SLEEP);
+        sleep(SEND_SLEEP);
     }
     return NULL;
 }
@@ -209,7 +209,7 @@ void *receive_video(void *arg)
         myFile2 << duration_cast<microseconds>(toc_rcv_video - tic_rcv_video).count() << endl;
         std::ofstream myFile5("rcvVideoCPU.csv", std::ios::app );
         myFile5 << rcvVideoCPU << endl;
-        //sleep(RECV_SLEEP);
+        sleep(RECV_SLEEP);
     }
     return NULL;
 }
