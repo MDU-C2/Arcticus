@@ -131,7 +131,7 @@ void* receive_ctrl_msg(void* arg) {
 }
 
 void* send_video(void* arg) {
-   // setprio(SEND_PRIO, SCHED_RR);
+    setprio(SEND_PRIO, SCHED_RR);
     struct sockaddr_in* to_addr = (struct sockaddr_in*)arg;
     int bytes;
 
