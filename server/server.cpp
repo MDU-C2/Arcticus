@@ -9,10 +9,10 @@ using namespace cv;
 using namespace std;
 #define START 4
 #define MAX_LEN 65535
-/*
+
 #define JOY_SLEEP 0.015 //15ms
 #define VIDEO_SLEEP 0.015 //15ms
-#define SEND_PRIO sched_get_priority_max(SCHED_RR)//low 99
+/*#define SEND_PRIO sched_get_priority_max(SCHED_RR)//low 99
 #define RECV_PRIO sched_get_priority_max(SCHED_RR)-1//high 98
 */
 int socket_desc;
@@ -117,14 +117,14 @@ void* receive_ctrl_msg(void* arg) {
         end_command_clk = clock();
         rcvCtrlCPU = (double) (end_command_clk - start_command_clk) / CLOCKS_PER_SEC;
         //std::cout << "Total CPU time for command: " << rcvCtrlCPU << std::endl;
-        std::cout << "Elapsed time receiving ctrl msg: " << duration_cast<microseconds>(toc_rcv_ctrl_msg - tic_rcv_ctrl_msg).count() << std::endl; // Print difference in milliseconds
+        //std::cout << "Elapsed time receiving ctrl msg: " << duration_cast<microseconds>(toc_rcv_ctrl_msg - tic_rcv_ctrl_msg).count() << std::endl; // Print difference in milliseconds
 
         /*Save to .csv file*/
         std::ofstream myFile2("rcvCtrlTime.csv", std::ios::app);
         myFile2 << duration_cast<microseconds>(toc_rcv_ctrl_msg - tic_rcv_ctrl_msg).count() << endl;
         std::ofstream myFile3("rcvCtrlCPU.csv", std::ios::app);
         myFile3 << rcvCtrlCPU << endl;
-        //sleep(JOY_SLEEP);
+        sleep(JOY_SLEEP);
     }
     free(msg);
     return NULL;
@@ -193,7 +193,7 @@ void* send_video(void* arg) {
             myFile1 << duration_cast<microseconds>(toc_send_video - tic_send_video).count() << endl;
             std::ofstream myFile4("sendVideoCPU.csv", std::ios::app);
             myFile4 << sendVideoCPU << endl;
-            //sleep(VIDEO_SLEEP);
+            sleep(VIDEO_SLEEP);
         }
     }
     return NULL;
