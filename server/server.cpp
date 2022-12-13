@@ -12,8 +12,8 @@ using namespace std;
 
 #define JOY_SLEEP 0.015 //15ms
 #define VIDEO_SLEEP 0.015 //15ms
-#define SEND_PRIO sched_get_priority_max(SCHED_RR)//low 99
-#define RECV_PRIO sched_get_priority_max(SCHED_RR)-1//high 98
+#define SEND_PRIO 80
+#define RECV_PRIO 79
 
 int socket_desc;
 
