@@ -9,6 +9,11 @@ using namespace cv;
 using namespace std;
 #define START 4
 #define MAX_LEN 65535
+#define ROW_JUMP 100
+#define LAST_JUMP 80
+#define ROWS_DIV 5 //nr of rows in a frame is always 480. nr of cols is 640
+#define ROWS 480
+#define COLS 640
 
 #define JOY_SLEEP 0.015 //15ms
 #define VIDEO_SLEEP 0.015 //15ms
@@ -138,66 +143,73 @@ void* send_video(void* arg) {
     /*Create a video capturing object*/
     cv::VideoCapture video(0);
 
-    /*Change resolution*/
+       /*Change resolution*/
     video.set(CAP_PROP_FPS, 30);
     /*Check if camera is opened*/
     if (video.isOpened() == false) {
         exit(1);
     }
-
     /*Create a class to save the frame to*/
     cv::Mat frame;
-    /*Encoding, frame-> jpg -> base 64*/
-    std::vector<uchar> buf;
-    std::vector<int> param(2);
-    param[0] = cv::IMWRITE_JPEG_QUALITY;
-    param[1] = 60; /* default(95) 0-100 */
-
-
-    while (video.read(frame) == true && keep_running == true) {
-
+    
+    
+    unsigned char *sub_frame_arr;
+    
+    int k=1;
+    int size_send_data;
+    while (video.read(frame) == true && keep_running == true && k) {
         /*Tic*/
         auto tic_send_video = Clock::now(); // First timestamp, before encoding
+        start_video_clk = clock();
+        unsigned char *data_frame = frame.data;
+        std::cout << "first data element in frame: " <<  data_frame[0] << endl;
+        /*
+        std::cout << "Frame: " << frame << endl;
+       std::cout << "------------------------------------------------------------------" << endl;
 
-       start_video_clk = clock();
+        cv::Mat sub_frame = frame(cv::Range(0, ROW_JUMP), cv::Range::all());
+        std::cout << "Subframe: " << sub_frame << endl;
 
-        /*Encoding*/
-        cv::imencode(".jpg", frame, buf, param);                       /* Encode data from class Mat to JPG */
-        auto* enc_msg = reinterpret_cast<unsigned char*>(buf.data()); /* Cast the JPG to char* */
-        std::string encoded = base64_encode(enc_msg, buf.size());      /* Encode the data to base 64 */
-        int size = START + encoded.size();
+        std::cout << "------------------------------------------------------------------" << endl;
+        std::cout << "Nr of rows in frame: " << frame.size().height << endl;
 
-        if (size <= MAX_LEN) {
-            encoded.insert(0, to_string(size));
-            //printf("len message %d. First element %c\n", encoded.size(), encoded[0]);
-            bytes = sendto(socket_desc, encoded.c_str(), size, 0, (struct sockaddr*)to_addr, sizeof(*to_addr));
+        std::cout << "------------------------------------------------------------------" << endl;
+        sub_frame_arr = sub_frame.data;
+        std::cout << "sub frame arr: " << sub_frame_arr << endl;
+
+                 std::cout << "------------------------------------------------------------------" << endl;
+            std::cout << "Nr of rows in frame: " << sub_frame.size().height << endl;
+        */
+        size_send_data = COLS*ROW_JUMP;
+        for (int i = 0; i < ROWS_DIV; i += ROW_JUMP) {
+            cv::Mat sub_frame;
+            if (i < ROWS -1) {
+                sub_frame = frame(cv::Range(i, ROW_JUMP), cv::Range(0, COLS));
+            } else {
+                sub_frame = frame(cv::Range(i, LAST_JUMP), cv::Range(0, COLS));
+                size_send_data = COLS*LAST_JUMP;
+            }
+   
+            bytes = sendto(socket_desc, sub_frame.data, size_send_data, 0, (struct sockaddr*)to_addr, sizeof(*to_addr));
             if (bytes == -1) {
                 perror("sendto");
             }
-
-            /*Clear*/
-            buf.clear();
-            enc_msg = NULL;
-            encoded.clear();
-
-
-            /*Toc*/
-            auto toc_send_video = Clock::now(); //Second timestamp
-            end_video_clk = clock();
-            sendVideoCPU = (double) (end_command_clk - start_video_clk) / CLOCKS_PER_SEC;
-           // std::cout << "Total CPU time for video: " << sendVideoCPU << std::endl;
-           // std::cout << "Elapsed time: " << duration_cast<milliseconds>(toc_send_video - tic_send_video).count() << std::endl; // Print difference in milliseconds
-
-            /*Save to .csv file*/
-            std::ofstream myFile1("sendVideoTime.csv", std::ios::app);
-            myFile1 << duration_cast<microseconds>(toc_send_video - tic_send_video).count() << endl;
-            std::ofstream myFile4("sendVideoCPU.csv", std::ios::app);
-            myFile4 << sendVideoCPU << endl;
-            sleep(VIDEO_SLEEP);
         }
+        /*Toc*/
+        auto toc_send_video = Clock::now(); //Second timestamp
+        end_video_clk = clock();
+        sendVideoCPU = (double) (end_command_clk - start_video_clk) / CLOCKS_PER_SEC;
+        /*Save to .csv file*/
+        std::ofstream myFile1("sendVideoTime.csv", std::ios::app);
+        myFile1 << duration_cast<microseconds>(toc_send_video - tic_send_video).count() << endl;
+        std::ofstream myFile4("sendVideoCPU.csv", std::ios::app);
+        myFile4 << sendVideoCPU << endl;
+        sleep(VIDEO_SLEEP);
+
     }
     return NULL;
 }
+
 
 int main(int argc, char** argv) {
     signal(SIGINT, handler); /* handles ctrl+C */
@@ -278,7 +290,7 @@ int main(int argc, char** argv) {
         printf("error recv_attr init\n");
     }*/
 
-    pthread_create(&receive_thread, NULL, receive_ctrl_msg, &to_addr); //kom ihåg att sätta attr sen på rt
+    //pthread_create(&receive_thread, NULL, receive_ctrl_msg, &to_addr); //kom ihåg att sätta attr sen på rt
     pthread_create(&send_thread, NULL, send_video, &to_addr);
     pthread_join(send_thread, NULL);
     pthread_join(receive_thread, NULL);

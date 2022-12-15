@@ -5,8 +5,14 @@ using namespace std;
 using namespace std::chrono;
 using Clock = std::chrono::steady_clock;
 
-#define MAX_LEN 65535
-#define MAX_NR 10
+#define MAX_LEN 64000
+#define RESOLUTION 640*480
+#define ROW_JUMP 100
+#define LAST_JUMP 80
+#define ROWS_DIV 5 //nr of rows in a frame is always 480. nr of cols is 640
+#define ROWS 480
+#define COLS 640
+#define ROWS_DIV 5 //nr of rows in a frame is always 480. nr of cols is 640
 
 #define SEND_SLEEP 0.015 //15ms
 #define RECV_SLEEP 0.015 //15ms
@@ -143,56 +149,61 @@ void *receive_video(void *arg)
 {
    // setprio(RECV_PRIO, SCHED_RR);
     struct sockaddr_in *from_addr = (struct sockaddr_in *)arg;
-    std::string encoded;
-
+    cv::Mat frame=cv::Mat(ROWS,COLS,CV_8UC1);
     while (keep_running)
     {
         socklen_t len = sizeof(from_addr);
 
         char str[MAX_LEN];
-        char str_nr[MAX_NR];
-        int index_stop;
+        unsigned char str_append[RESOLUTION];
+
 
         /*Receive video message*/
-        int bytes = recvfrom(socket_desc, str, MAX_LEN, 0, (struct sockaddr *)&from_addr, &len);
-        if (bytes == -1)
-        {
-            perror("recvfrom");
-            exit(1);
+        int main_index =0;
+        for (int i = 0; i < ROWS_DIV; i++) {
+            if ( i < ROWS_DIV -1) { 
+                int bytes = recvfrom(socket_desc, str, MAX_LEN, 0, (struct sockaddr *)&from_addr, &len);
+                if (bytes == -1)
+                {
+                    perror("recvfrom");
+                    exit(1);
+                }
+            } else {
+                int bytes = recvfrom(socket_desc, str, ROWS*LAST_JUMP, 0, (struct sockaddr *)&from_addr, &len);
+                if (bytes == -1)
+                {
+                    perror("recvfrom");
+                    exit(1);
+                }
+            }
+            if ( i < ROWS_DIV -1) {
+                for (int j=0; j < COLS*ROW_JUMP; j++) {
+                    str_append[main_index] = str[j]; 
+                    main_index++;
+                    if (main_index > RESOLUTION) {
+                        break;
+                    }
+                }
+            } else {
+                for (int j=0; j < COLS*LAST_JUMP; j++) {
+                    str_append[main_index] = str[j]; 
+                    main_index++;
+                    if (main_index > RESOLUTION) {
+                        break;
+                    }
+                }
+            }
+            
         }
-
+        
         /*Tic*/
         start_video_clk = clock(); // First timestamp, before receiving video in CPU time
         auto tic_rcv_video = Clock::now(); // First timestamp, before receiving video
-
-        /*Ugly fix to what?*/
-        for (int i = 0; i < MAX_NR; i++)
-        {
-            if (str[i] == '/')
-            {
-                index_stop = i;
-                break;
-            }
-        }
-
-        /*Ugly fix to what?*/
-        strncpy(str_nr, str, index_stop);
-        str_nr[index_stop] = '\0';
-        /* Convert to std::string and remove the number in front */
-        encoded = "";
-        for (int i = index_stop; i < atoi(str_nr); i++)
-        {
-            encoded = encoded + str[i];
-        }
-
-        /*Decode part*/
-        string dec_jpg = base64_decode(encoded);                 /* Decode the data to base 64 */
-        std::vector<uchar> data(dec_jpg.begin(), dec_jpg.end()); /* Cast the data to JPG from base 64 */
-        cv::Mat img = cv::imdecode(cv::Mat(data), 1);            /* Decode the JPG data to class Mat */
+        
 
         /*Display the video frames*/
-        
-        cv::imshow("Video feed", img);
+        frame.data = str_append;
+        cv::imshow("Video feed", frame);
 
         /*Toc*/
         end_video_clk = clock();           // Second timestamp, after receieving video in CPU time
