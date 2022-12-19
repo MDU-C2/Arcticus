@@ -162,7 +162,7 @@ void* send_video(void* arg) {
         auto tic_send_video = Clock::now(); // First timestamp, before encoding
         start_video_clk = clock();
         unsigned char *data_frame = frame.data;
-        std::cout << "first data element in frame: " <<  data_frame[0] << endl;
+        //std::cout << "first data element in frame: " <<  data_frame[0] << endl;
         /*
         std::cout << "Frame: " << frame << endl;
        std::cout << "------------------------------------------------------------------" << endl;
@@ -180,8 +180,9 @@ void* send_video(void* arg) {
                  std::cout << "------------------------------------------------------------------" << endl;
             std::cout << "Nr of rows in frame: " << sub_frame.size().height << endl;
         */
+       std::cout << "------------------------------------------------------------------" << endl;
         size_send_data = COLS*ROW_JUMP;
-        for (int i = 0; i < ROWS_DIV; i += ROW_JUMP) {
+        for (int i = 0; i < ROWS_DIV; i++) {
             cv::Mat sub_frame;
             if (i < ROWS -1) {
                 sub_frame = frame(cv::Range(i, ROW_JUMP), cv::Range(0, COLS));
@@ -189,11 +190,13 @@ void* send_video(void* arg) {
                 sub_frame = frame(cv::Range(i, LAST_JUMP), cv::Range(0, COLS));
                 size_send_data = COLS*LAST_JUMP;
             }
-   
+            
+            std::cout << "Subframe: " << sub_frame.data[0] << endl;
             bytes = sendto(socket_desc, sub_frame.data, size_send_data, 0, (struct sockaddr*)to_addr, sizeof(*to_addr));
             if (bytes == -1) {
                 perror("sendto");
             }
+            sleep(1);
         }
         /*Toc*/
         auto toc_send_video = Clock::now(); //Second timestamp
@@ -298,4 +301,3 @@ int main(int argc, char** argv) {
     close(socket_desc);
     return 0;
 }
-

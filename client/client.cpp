@@ -150,6 +150,7 @@ void *receive_video(void *arg)
    // setprio(RECV_PRIO, SCHED_RR);
     struct sockaddr_in *from_addr = (struct sockaddr_in *)arg;
     cv::Mat frame=cv::Mat(ROWS,COLS,CV_8UC1);
+    int length = 0;
     while (keep_running)
     {
         socklen_t len = sizeof(from_addr);
@@ -160,7 +161,9 @@ void *receive_video(void *arg)
 
         /*Receive video message*/
         int main_index =0;
+        std::cout << "------------------------------------------------------------------" << endl;
         for (int i = 0; i < ROWS_DIV; i++) {
+            
             if ( i < ROWS_DIV -1) { 
                 int bytes = recvfrom(socket_desc, str, MAX_LEN, 0, (struct sockaddr *)&from_addr, &len);
                 if (bytes == -1)
@@ -177,16 +180,18 @@ void *receive_video(void *arg)
                 }
             }
             if ( i < ROWS_DIV -1) {
+                length = COLS*ROW_JUMP;
                 for (int j=0; j < COLS*ROW_JUMP; j++) {
-                    str_append[main_index] = str[j]; 
+                    frame.data[main_index] = str[j]; 
                     main_index++;
                     if (main_index > RESOLUTION) {
                         break;
                     }
                 }
             } else {
+                length = COLS*LAST_JUMP;
                 for (int j=0; j < COLS*LAST_JUMP; j++) {
-                    str_append[main_index] = str[j]; 
+                    frame.data[main_index] = str[j]; 
                     main_index++;
                     if (main_index > RESOLUTION) {
                         break;
@@ -194,16 +199,18 @@ void *receive_video(void *arg)
                 }
             }
             
+            std::cout << "frame: " << frame.data[0] << endl;
+           // frame=cv::Mat(ROWS,COLS,CV_8UC1);
+            
+                
         }
-        
+        cv::imshow("Video feed", frame);
         /*Tic*/
         start_video_clk = clock(); // First timestamp, before receiving video in CPU time
         auto tic_rcv_video = Clock::now(); // First timestamp, before receiving video
         
 
-        /*Display the video frames*/
-        frame.data = str_append;
-        cv::imshow("Video feed", frame);
+        
 
         /*Toc*/
         end_video_clk = clock();           // Second timestamp, after receieving video in CPU time
