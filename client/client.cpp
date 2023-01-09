@@ -197,7 +197,7 @@ void *receive_video(void *arg) {
     return NULL;
 }
 int main(int argc, char **argv) {
-    XInitThreads(); /* To make openCV work on debian*/
+    XInitThreads(); /* To make openCV work on debian with earlier version of openCV*/
     signal(SIGINT, handler); /* handles ctrl+C signal */
     int bytes;
     int port_nr;
