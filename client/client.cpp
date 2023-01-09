@@ -1,5 +1,5 @@
 #include "client.h"
-#include <X11/Xlib.h>
+
 using namespace cv;
 using namespace std;
 using namespace std::chrono;
@@ -11,8 +11,8 @@ using Clock = std::chrono::steady_clock;
 
 #define SEND_SLEEP 0.015 //15ms
 #define RECV_SLEEP 0.015 //15ms
-#define SEND_PRIO 79//low 98
-#define RECV_PRIO 80//high 99
+#define SEND_PRIO 79//low 
+#define RECV_PRIO 80//high 
 
 int socket_desc;
 struct sockaddr_in global_to_addr;
@@ -23,15 +23,14 @@ double sendCtrlCPU, rcvVideoCPU;
 
 static void setprio(int prio, int sched) {
     struct sched_param param;
-    // Set realtime priority for this thread 
+    /* Set realtime priority for this thread */
     param.sched_priority = prio;
     if (sched_setscheduler(0, sched, &param) < 0)
         perror("sched_setscheduler");
 }
 
 static volatile int keep_running = true;
-void handler(int arg)
-{
+void handler(int arg) {
     keep_running = false;
     struct ctrl_msg control_signal = {};
     int bytes = sendto(socket_desc, (struct ctrl_msg *)&control_signal, sizeof(control_signal), 0, (struct sockaddr *)&global_to_addr, sizeof(global_to_addr));
@@ -41,16 +40,14 @@ void handler(int arg)
         exit(1);
     }
     printf("pwm1: %d pwm2: %d\n", control_signal.pwm_motor1, control_signal.pwm_motor2);
-    abort();
+    abort(); 
 }
-int lin_map(float value, float x_0, float y_0, float x_1, float y_1)
-{
+int lin_map(float value, float x_0, float y_0, float x_1, float y_1) {
     int y;
     float k = (y_1 - y_0) / (x_1 - x_0);
     float m = y_0 - k * x_0;
     y = k * value + m;
-    if (y > 1024)
-    {
+    if (y > 1024) {  /* Don't exceed 1024 pwm*/
         y = 1024;
     }
     return y;
@@ -68,13 +65,10 @@ void *send_ctrl_msg(void *arg) {
     sf::Vector2f speed = sf::Vector2f(0.f, 0.f);
 
     while (keep_running) {
-        sf::Joystick::update();
+        sf::Joystick::update(); /* To get new joystick coordinates*/
         /*Tic*/
-        auto tic_send_ctrl_msg = Clock::now(); // First timestamp, before sending
-        start_joystick_clk = clock(); // First timestamp for sending ctrl msg in CPU time
-
-        // std::cout << "X axis: " << speed.x << std::endl;
-        // std::cout << "Y axis: " << speed.y << std::endl;
+        auto tic_send_ctrl_msg = Clock::now(); /* First timestamp, before sending */
+        start_joystick_clk = clock(); /* First timestamp for sending ctrl msg in CPU time */
 
         if (speed.y > 0) { /* drive forward */
             control_signal.switch_signal_0 = forward[0];
@@ -90,7 +84,7 @@ void *send_ctrl_msg(void *arg) {
             scaling = 1;
         }
         int abs_vel = sqrt((speed.x * speed.x) + (speed.y * speed.y));
-        int abs_mapped = lin_map(abs_vel, 0, 200, 100, 1024);
+        int abs_mapped = lin_map(abs_vel, 0, 200, 100, 1024); /* Map the velocity to the range [200,1024]*/
         if (keep_running == true) {
             if (speed.x > 0) {
                 control_signal.pwm_motor1 = scaling * ((100 - speed.x) / 100) * abs_mapped;
@@ -109,8 +103,6 @@ void *send_ctrl_msg(void *arg) {
             }
             exit(1);
         }
-        //  std::cout << "pwm1: " << control_signal.pwm_motor1 << std::endl;
-        //  std::cout << "pwm2: " << control_signal.pwm_motor2 << std::endl;
 
         speed = sf::Vector2f(sf::Joystick::getAxisPosition(0, sf::Joystick::X), sf::Joystick::getAxisPosition(0, sf::Joystick::Y));
         bytes = sendto(socket_desc, (struct ctrl_msg *)&control_signal, sizeof(control_signal), 0, (struct sockaddr *)to_addr, sizeof(*to_addr));
@@ -124,11 +116,9 @@ void *send_ctrl_msg(void *arg) {
             control_signal.pwm_motor2 = 0;
         }
         /*Toc*/
-        auto toc_send_ctrl_msg = Clock::now(); // Second timestamp, after sending ctrl message
-        end_joystick_clk = clock();            // Second timestamp, after sending ctlr message in CPU time 
+        auto toc_send_ctrl_msg = Clock::now(); /* Second timestamp, after sending ctrl message */
+        end_joystick_clk = clock();            /* Second timestamp, after sending ctlr message in CPU time */
         sendCtrlCPU = (double) (end_joystick_clk - start_joystick_clk) / CLOCKS_PER_SEC;
-        //std::cout << "Total CPU time for joystick: " << sendCtrlCPU << std::endl;
-        // std::cout << "Elapsed time sending ctrl message: " << duration_cast<microseconds>(toc_send_ctrl_msg - tic_send_ctrl_msg).count() << std::endl; // Print difference in milliseconds
 
         /*Save to .csv file*/
         std::ofstream myFile3("sendCtrlTime.csv", std::ios::app);
@@ -140,14 +130,12 @@ void *send_ctrl_msg(void *arg) {
     }
     return NULL;
 }
-void *receive_video(void *arg)
-{
+void *receive_video(void *arg) {
     setprio(RECV_PRIO, SCHED_RR);
     struct sockaddr_in *from_addr = (struct sockaddr_in *)arg;
     std::string encoded;
 
-    while (keep_running)
-    {
+    while (keep_running) {
         socklen_t len = sizeof(from_addr);
 
         char str[MAX_LEN];
@@ -163,12 +151,10 @@ void *receive_video(void *arg)
         }
 
         /*Tic*/
-        start_video_clk = clock(); // First timestamp, before receiving video in CPU time
-        auto tic_rcv_video = Clock::now(); // First timestamp, before receiving video
+        start_video_clk = clock(); /* First timestamp, before receiving video in CPU time */
+        auto tic_rcv_video = Clock::now(); /* First timestamp, before receiving video */
 
-        /*Ugly fix to what?*/
-        for (int i = 0; i < MAX_NR; i++)
-        {
+        for (int i = 0; i < MAX_NR; i++) {
             if (str[i] == '/')
             {
                 index_stop = i;
@@ -176,7 +162,6 @@ void *receive_video(void *arg)
             }
         }
 
-        /*Ugly fix to what?*/
         strncpy(str_nr, str, index_stop);
         str_nr[index_stop] = '\0';
         /* Convert to std::string and remove the number in front */
@@ -192,18 +177,15 @@ void *receive_video(void *arg)
         cv::Mat img = cv::imdecode(cv::Mat(data), 1);            /* Decode the JPG data to class Mat */
 
         /*Display the video frames*/
-        
         cv::imshow("Video feed", img);
 
         /*Toc*/
-        end_video_clk = clock();           // Second timestamp, after receieving video in CPU time
-        auto toc_rcv_video = Clock::now(); // Second timestamp, after recieving video
+        end_video_clk = clock();           /* Second timestamp, after receieving video in CPU time */
+        auto toc_rcv_video = Clock::now(); /* Second timestamp, after recieving video */
 
 
         rcvVideoCPU = (double) (end_video_clk - start_video_clk) / CLOCKS_PER_SEC;
         
-        //std::cout << "Total CPU time for video: " << rcvVideoCPU << std::endl;
-       // std::cout << "Elapsed time receiving video: " << duration_cast<milliseconds>(toc_rcv_video - tic_rcv_video).count() << std::endl; // Print difference in milliseconds
 
         /*Save to .csv file*/
         std::ofstream myFile2("rcvVideoTime.csv", std::ios::app);
@@ -214,9 +196,8 @@ void *receive_video(void *arg)
     }
     return NULL;
 }
-int main(int argc, char **argv)
-{
-    XInitThreads();
+int main(int argc, char **argv) {
+    XInitThreads(); /* To make openCV work on debian*/
     signal(SIGINT, handler); /* handles ctrl+C signal */
     int bytes;
     int port_nr;
@@ -234,48 +215,43 @@ int main(int argc, char **argv)
     myFile5 << "";
 
     /* check command line arguments */
-    if (argc != 3)
-    {
+    if (argc != 3) {
         fprintf(stderr, "usage: %s destination port\n", argv[0]);
         exit(1);
     }
 
-    /* extract destination IP address */
+    /* get IP address of server*/
     struct hostent *host = gethostbyname(argv[1]);
 
-    if (host == NULL)
-    {
+    if (host == NULL) {
         fprintf(stderr, "unknown host %s\n", argv[1]);
         exit(1);
     }
 
     in_addr_t ip_address = *((in_addr_t *)(host->h_addr));
 
-    /* extract destination port number */
-    if (sscanf(argv[2], "%d", &port_nr) != 1)
-    {
+    /* get port number */
+    if (sscanf(argv[2], "%d", &port_nr) != 1) {
         fprintf(stderr, "invalid port %s\n", argv[2]);
         exit(1);
     }
     /* create UDP socket */
     socket_desc = socket(AF_INET, SOCK_DGRAM, 0);
-    if (socket_desc == -1)
-    {
+    if (socket_desc == -1) {
         perror("socket");
         exit(1);
     }
-    /* bound to any local address on the specified port */
+    /* Allocate the specified port number to the socket*/
     my_addr.sin_family = AF_INET;
     my_addr.sin_port = htons(port_nr);
     my_addr.sin_addr.s_addr = htonl(INADDR_ANY);
 
     bytes = bind(socket_desc, (struct sockaddr *)&my_addr, sizeof(my_addr));
-    if (bytes == -1)
-    {
+    if (bytes == -1) {
         perror("bind");
         exit(1);
     }
-    /* allowing broadcast (optional) */
+    /* set option to broadcast */
     int on = 1;
     bytes = setsockopt(socket_desc, SOL_SOCKET, SO_BROADCAST, &on, sizeof(int));
     if (bytes == -1)

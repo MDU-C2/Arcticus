@@ -32,6 +32,8 @@
 #include <sys/time.h>
 #include <limits.h>
 
+#include <X11/Xlib.h>
+
 struct ctrl_msg {
     u_int8_t switch_signal_0;
     u_int8_t switch_signal_1;
