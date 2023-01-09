@@ -10,27 +10,16 @@ using Clock = std::chrono::steady_clock;
 
 #define SEND_SLEEP 0.015 //15ms
 #define RECV_SLEEP 0.015 //15ms
-/*#define SEND_PRIO sched_get_priority_max(SCHED_RR)-1//low 98
-#define RECV_PRIO sched_get_priority_max(SCHED_RR)//high 99
-*/
+
 int socket_desc;
 struct sockaddr_in global_to_addr;
 
 /*Parameters for CPU time clock*/
 clock_t start_joystick_clk, end_joystick_clk, start_video_clk, end_video_clk;
 double sendCtrlCPU, rcvVideoCPU;
-/*
-static void setprio(int prio, int sched) {
-    struct sched_param param;
-    // Set realtime priority for this thread 
-    param.sched_priority = prio;
-    if (sched_setscheduler(0, sched, &param) < 0)
-        perror("sched_setscheduler");
-}
-*/
+
 static volatile int keep_running = true;
-void handler(int arg)
-{
+void handler(int arg) {
     keep_running = false;
     struct ctrl_msg control_signal = {};
     int bytes = sendto(socket_desc, (struct ctrl_msg *)&control_signal, sizeof(control_signal), 0, (struct sockaddr *)&global_to_addr, sizeof(global_to_addr));
@@ -42,8 +31,7 @@ void handler(int arg)
     printf("pwm1: %d pwm2: %d\n", control_signal.pwm_motor1, control_signal.pwm_motor2);
     abort();
 }
-int lin_map(float value, float x_0, float y_0, float x_1, float y_1)
-{
+int lin_map(float value, float x_0, float y_0, float x_1, float y_1) {
     int y;
     float k = (y_1 - y_0) / (x_1 - x_0);
     float m = y_0 - k * x_0;
@@ -55,7 +43,6 @@ int lin_map(float value, float x_0, float y_0, float x_1, float y_1)
     return y;
 }
 void *send_ctrl_msg(void *arg) {
-  //  setprio(SEND_PRIO, SCHED_RR);
     struct sockaddr_in *to_addr = (struct sockaddr_in *)arg;
     int bytes;
     struct ctrl_msg control_signal = {};
@@ -71,9 +58,6 @@ void *send_ctrl_msg(void *arg) {
         /*Tic*/
         auto tic_send_ctrl_msg = Clock::now(); // First timestamp, before sending
         start_joystick_clk = clock(); // First timestamp for sending ctrl msg in CPU time
-
-        // std::cout << "X axis: " << speed.x << std::endl;
-        // std::cout << "Y axis: " << speed.y << std::endl;
 
         if (speed.y < 0) { /* drive forward */
             control_signal.switch_signal_0 = forward[0];
@@ -108,8 +92,6 @@ void *send_ctrl_msg(void *arg) {
             }
             exit(1);
         }
-        //  std::cout << "pwm1: " << control_signal.pwm_motor1 << std::endl;
-        //  std::cout << "pwm2: " << control_signal.pwm_motor2 << std::endl;
 
         speed = sf::Vector2f(sf::Joystick::getAxisPosition(0, sf::Joystick::X), sf::Joystick::getAxisPosition(0, sf::Joystick::Y));
         bytes = sendto(socket_desc, (struct ctrl_msg *)&control_signal, sizeof(control_signal), 0, (struct sockaddr *)to_addr, sizeof(*to_addr));
@@ -139,14 +121,11 @@ void *send_ctrl_msg(void *arg) {
     }
     return NULL;
 }
-void *receive_video(void *arg)
-{
-   // setprio(RECV_PRIO, SCHED_RR);
+void *receive_video(void *arg) {
     struct sockaddr_in *from_addr = (struct sockaddr_in *)arg;
     std::string encoded;
 
-    while (keep_running)
-    {
+    while (keep_running) {
         socklen_t len = sizeof(from_addr);
 
         char str[MAX_LEN];
@@ -165,7 +144,6 @@ void *receive_video(void *arg)
         start_video_clk = clock(); // First timestamp, before receiving video in CPU time
         auto tic_rcv_video = Clock::now(); // First timestamp, before receiving video
 
-        /*Ugly fix to what?*/
         for (int i = 0; i < MAX_NR; i++)
         {
             if (str[i] == '/')
@@ -175,7 +153,6 @@ void *receive_video(void *arg)
             }
         }
 
-        /*Ugly fix to what?*/
         strncpy(str_nr, str, index_stop);
         str_nr[index_stop] = '\0';
         /* Convert to std::string and remove the number in front */
@@ -232,13 +209,12 @@ int main(int argc, char **argv)
     myFile5 << "";
 
     /* check command line arguments */
-    if (argc != 3)
-    {
+    if (argc != 3) {
         fprintf(stderr, "usage: %s destination port\n", argv[0]);
         exit(1);
     }
 
-    /* extract destination IP address */
+    /* get server IP address */
     struct hostent *host = gethostbyname(argv[1]);
 
     if (host == NULL)
@@ -249,16 +225,14 @@ int main(int argc, char **argv)
 
     in_addr_t ip_address = *((in_addr_t *)(host->h_addr));
 
-    /* extract destination port number */
-    if (sscanf(argv[2], "%d", &port_nr) != 1)
-    {
+    /* port number */
+    if (sscanf(argv[2], "%d", &port_nr) != 1) {
         fprintf(stderr, "invalid port %s\n", argv[2]);
         exit(1);
     }
     /* create UDP socket */
     socket_desc = socket(AF_INET, SOCK_DGRAM, 0);
-    if (socket_desc == -1)
-    {
+    if (socket_desc == -1) {
         perror("socket");
         exit(1);
     }
@@ -268,16 +242,14 @@ int main(int argc, char **argv)
     my_addr.sin_addr.s_addr = htonl(INADDR_ANY);
 
     bytes = bind(socket_desc, (struct sockaddr *)&my_addr, sizeof(my_addr));
-    if (bytes == -1)
-    {
+    if (bytes == -1) {
         perror("bind");
         exit(1);
     }
-    /* allowing broadcast (optional) */
+    /* broadcast*/
     int on = 1;
     bytes = setsockopt(socket_desc, SOL_SOCKET, SO_BROADCAST, &on, sizeof(int));
-    if (bytes == -1)
-    {
+    if (bytes == -1) {
         perror("setsockopt");
         exit(1);
     }
@@ -289,16 +261,7 @@ int main(int argc, char **argv)
     global_to_addr = to_addr;
 
     pthread_t receive_thread, send_thread;
-    /*pthread_attr_t recv_attr, send_attr;
     
-    if (pthread_attr_init(&send_attr)) {
-        printf("error send_attr init\n");
-    }
-    if (pthread_attr_init(&recv_attr)) {
-        printf("error recv_attr init\n");
-    }*/
-      
-
     pthread_create(&send_thread, NULL, send_ctrl_msg, &to_addr);
     pthread_create(&receive_thread, NULL, receive_video, &to_addr);
     pthread_join(send_thread, NULL);

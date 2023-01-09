@@ -12,9 +12,7 @@ using namespace std;
 
 #define JOY_SLEEP 0.015 //15ms
 #define VIDEO_SLEEP 0.015 //15ms
-/*#define SEND_PRIO sched_get_priority_max(SCHED_RR)//low 99
-#define RECV_PRIO sched_get_priority_max(SCHED_RR)-1//high 98
-*/
+
 int socket_desc;
 
 /*Declaring variables for motor*/
@@ -31,16 +29,7 @@ int inB2 = 2; /* BCM 27 || Pysical 13 */
 // include time?
 clock_t start_command_clk, end_command_clk, start_video_clk, end_video_clk;
 
-double rcvCtrlCPU, sendVideoCPU;
-
-/*
-static void setprio(int prio, int sched) {
-    struct sched_param param;
-    // Set realtime priority for this thread 
-    param.sched_priority = prio;
-    if (sched_setscheduler(0, sched, &param) < 0)
-        perror("sched_setscheduler");
-}*/
+double rcvCtrlC
 /*Configuring the PWM*/
 void config_pwm(void)
 {
@@ -64,7 +53,6 @@ void handler(int arg) {
 }
 
 void* receive_ctrl_msg(void* arg) {
-   // setprio(RECV_PRIO, SCHED_RR);
     struct sockaddr_in* to_addr = (struct sockaddr_in*)arg;
     struct ctrl_msg* msg = (struct ctrl_msg*)malloc(sizeof(struct ctrl_msg));
     while (keep_running) {
@@ -80,9 +68,8 @@ void* receive_ctrl_msg(void* arg) {
         start_command_clk = clock();
 
  
-       if (msg->pwm_motor1 == 0 && msg->pwm_motor2 == 0)
-        {
-//      keep_running=false;
+       if (msg->pwm_motor1 == 0 && msg->pwm_motor2 == 0) {
+
             pwmWrite(enA, msg->pwm_motor1);
             pwmWrite(enB, msg->pwm_motor2);      
             free(msg);
@@ -104,10 +91,7 @@ void* receive_ctrl_msg(void* arg) {
             pwmWrite(enA, msg->pwm_motor1); /* Motor 1 */
             pwmWrite(enB, msg->pwm_motor2); /* Motor 2 */
             //  printf("pwm 1: %d pwm2: %d\n", msg->pwm_motor1, msg->pwm_motor2);
-        }
-
-        else
-        {
+        } else {
             break;
         }
 
@@ -131,7 +115,6 @@ void* receive_ctrl_msg(void* arg) {
 }
 
 void* send_video(void* arg) {
-   // setprio(SEND_PRIO, SCHED_RR);
     struct sockaddr_in* to_addr = (struct sockaddr_in*)arg;
     int bytes;
 
@@ -169,7 +152,6 @@ void* send_video(void* arg) {
 
         if (size <= MAX_LEN) {
             encoded.insert(0, to_string(size));
-            //printf("len message %d. First element %c\n", encoded.size(), encoded[0]);
             bytes = sendto(socket_desc, encoded.c_str(), size, 0, (struct sockaddr*)to_addr, sizeof(*to_addr));
             if (bytes == -1) {
                 perror("sendto");
@@ -223,7 +205,7 @@ int main(int argc, char** argv) {
         exit(1);
     }
 
-    /* extract destination IP address */
+    /* IP address of client*/
     struct hostent* host = gethostbyname(argv[1]);
 
     if (host == NULL) {
@@ -233,7 +215,7 @@ int main(int argc, char** argv) {
 
     in_addr_t ip_address = *((in_addr_t*)(host->h_addr));
 
-    /* extract local port number */
+    /* extract port number */
     if (sscanf(argv[2], "%d", &port_nr) != 1) {
         fprintf(stderr, "invalid port %s\n", argv[2]);
         exit(1);
@@ -245,7 +227,7 @@ int main(int argc, char** argv) {
         perror("socket");
         exit(1);
     }
-    /* bound to any local address on the specified port */
+    /* bind socket to port */
     my_addr.sin_family = AF_INET;
     my_addr.sin_port = htons(port_nr);
     my_addr.sin_addr.s_addr = htonl(INADDR_ANY);
@@ -255,7 +237,7 @@ int main(int argc, char** argv) {
         exit(1);
     }
 
-    /* allowing broadcast */
+    /* broadcast */
     int on = 1;
     bytes = setsockopt(socket_desc, SOL_SOCKET, SO_BROADCAST, &on, sizeof(int));
     if (bytes == -1) {
@@ -269,16 +251,8 @@ int main(int argc, char** argv) {
     to_addr.sin_addr.s_addr = ip_address;
 
     pthread_t send_thread, receive_thread;
-    /*pthread_attr_t recv_attr, send_attr;
-    
-    if (pthread_attr_init(&send_attr)) {
-        printf("error send_attr init\n");
-    }
-    if (pthread_attr_init(&recv_attr)) {
-        printf("error recv_attr init\n");
-    }*/
 
-    pthread_create(&receive_thread, NULL, receive_ctrl_msg, &to_addr); //kom ihåg att sätta attr sen på rt
+    pthread_create(&receive_thread, NULL, receive_ctrl_msg, &to_addr);
     pthread_create(&send_thread, NULL, send_video, &to_addr);
     pthread_join(send_thread, NULL);
     pthread_join(receive_thread, NULL);
