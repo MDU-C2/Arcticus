@@ -23,8 +23,7 @@ void handler(int arg) {
     keep_running = false;
     struct ctrl_msg control_signal = {};
     int bytes = sendto(socket_desc, (struct ctrl_msg *)&control_signal, sizeof(control_signal), 0, (struct sockaddr *)&global_to_addr, sizeof(global_to_addr));
-    if (bytes == -1)
-    {
+    if (bytes == -1) {
         perror("sendto");
         exit(1);
     }
@@ -36,8 +35,7 @@ int lin_map(float value, float x_0, float y_0, float x_1, float y_1) {
     float k = (y_1 - y_0) / (x_1 - x_0);
     float m = y_0 - k * x_0;
     y = k * value + m;
-    if (y > 1024)
-    {
+    if (y > 1024) {
         y = 1024;
     }
     return y;
@@ -134,8 +132,7 @@ void *receive_video(void *arg) {
 
         /*Receive video message*/
         int bytes = recvfrom(socket_desc, str, MAX_LEN, 0, (struct sockaddr *)&from_addr, &len);
-        if (bytes == -1)
-        {
+        if (bytes == -1) {
             perror("recvfrom");
             exit(1);
         }
@@ -144,10 +141,8 @@ void *receive_video(void *arg) {
         start_video_clk = clock(); // First timestamp, before receiving video in CPU time
         auto tic_rcv_video = Clock::now(); // First timestamp, before receiving video
 
-        for (int i = 0; i < MAX_NR; i++)
-        {
-            if (str[i] == '/')
-            {
+        for (int i = 0; i < MAX_NR; i++) {
+            if (str[i] == '/') {
                 index_stop = i;
                 break;
             }
@@ -217,8 +212,7 @@ int main(int argc, char **argv)
     /* get server IP address */
     struct hostent *host = gethostbyname(argv[1]);
 
-    if (host == NULL)
-    {
+    if (host == NULL) {
         fprintf(stderr, "unknown host %s\n", argv[1]);
         exit(1);
     }

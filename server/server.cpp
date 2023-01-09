@@ -31,8 +31,7 @@ clock_t start_command_clk, end_command_clk, start_video_clk, end_video_clk;
 
 double rcvCtrlC
 /*Configuring the PWM*/
-void config_pwm(void)
-{
+void config_pwm(void) {
     wiringPiSetup();
     /* Motor 1 */
     pinMode(enA, PWM_OUTPUT);    /*set GPIO as output */
