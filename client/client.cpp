@@ -15,6 +15,7 @@ using Clock = std::chrono::steady_clock;
 #define RECV_PRIO 80//high 
 
 int socket_desc;
+int flag = true;
 struct sockaddr_in global_to_addr;
 
 /*Parameters for CPU time clock*/
@@ -53,7 +54,9 @@ int lin_map(float value, float x_0, float y_0, float x_1, float y_1) {
     return y;
 }
 void *send_ctrl_msg(void *arg) {
-    setprio(SEND_PRIO, SCHED_RR);
+    if (flag) {
+        setprio(SEND_PRIO, SCHED_RR);
+    }
     struct sockaddr_in *to_addr = (struct sockaddr_in *)arg;
     int bytes;
     struct ctrl_msg control_signal = {};
@@ -131,7 +134,10 @@ void *send_ctrl_msg(void *arg) {
     return NULL;
 }
 void *receive_video(void *arg) {
-    setprio(RECV_PRIO, SCHED_RR);
+    if (flag) {
+        setprio(RECV_PRIO, SCHED_RR);
+        printf("working");
+    }
     struct sockaddr_in *from_addr = (struct sockaddr_in *)arg;
     std::string encoded;
 
@@ -197,7 +203,7 @@ void *receive_video(void *arg) {
     return NULL;
 }
 int main(int argc, char **argv) {
-    XInitThreads(); /* To make openCV work on debian with earlier version of openCV*/
+   // XInitThreads(); /* To make openCV work on debian with earlier version of openCV*/
     signal(SIGINT, handler); /* handles ctrl+C signal */
     int bytes;
     int port_nr;
@@ -214,11 +220,11 @@ int main(int argc, char **argv) {
     std::ofstream myFile5("rcvVideoCPU.csv");
     myFile5 << "";
 
-    /* check command line arguments */
-    if (argc != 3) {
-        fprintf(stderr, "usage: %s destination port\n", argv[0]);
-        exit(1);
-    }
+
+
+    fprintf(stderr, "To run RT-implementation: %s destination port -r\n", argv[0]);
+    fprintf(stderr, "To run non RT-implementation: %s destination port\n", argv[0]);
+
 
     /* get IP address of server*/
     struct hostent *host = gethostbyname(argv[1]);
@@ -254,8 +260,7 @@ int main(int argc, char **argv) {
     /* set option to broadcast */
     int on = 1;
     bytes = setsockopt(socket_desc, SOL_SOCKET, SO_BROADCAST, &on, sizeof(int));
-    if (bytes == -1)
-    {
+    if (bytes == -1) {
         perror("setsockopt");
         exit(1);
     }
@@ -268,17 +273,24 @@ int main(int argc, char **argv) {
 
     pthread_t receive_thread, send_thread;
     pthread_attr_t recv_attr, send_attr;
+    char cmp_str[1];
+    cmp_str[0] = 'r';
     
-    if (pthread_attr_init(&send_attr)) {
-        printf("error send_attr init\n");
+    if (strncmp(argv[3],cmp_str, 1) == 0) {
+        if (pthread_attr_init(&send_attr)) {
+            printf("error send_attr init\n");
+        }
+        if (pthread_attr_init(&recv_attr)) {
+            printf("error recv_attr init\n");
+        }
+        pthread_create(&send_thread, &send_attr, send_ctrl_msg, &to_addr);
+        pthread_create(&receive_thread, &recv_attr, receive_video, &to_addr);
+    } else {
+        pthread_create(&send_thread, NULL, send_ctrl_msg, &to_addr);
+        pthread_create(&receive_thread, NULL, receive_video, &to_addr);  
     }
-    if (pthread_attr_init(&recv_attr)) {
-        printf("error recv_attr init\n");
-    }
-      
+    
 
-    pthread_create(&send_thread, &send_attr, send_ctrl_msg, &to_addr);
-    pthread_create(&receive_thread, &recv_attr, receive_video, &to_addr);
     pthread_join(send_thread, NULL);
     pthread_join(receive_thread, NULL);
  
