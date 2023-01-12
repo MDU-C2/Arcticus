@@ -1,5 +1,5 @@
 # How to run the program
-The server folder is to be located on the RPi and the client folder on the control station PC
+The server folder is to be located on the RPi and the client folder on the control station PC. 
 
 To run server:
 cd server/
@@ -12,3 +12,5 @@ cd client/
 sudo ./exe ip_server port_nr
 To run delay calculating script client afterwards: 
 Python3 calcAVG_client.py
+
+If you want to run RT version add rt or just r at the end. For example sudo ./exe ip_server port_nr rt.
