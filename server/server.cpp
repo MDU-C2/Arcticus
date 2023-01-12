@@ -14,7 +14,7 @@ using namespace std;
 #define RECV_PRIO 79 //low
 
 int socket_desc;
-
+int flag = true;
 /*Declaring variables for motor*/
 /* motor 1 */
 int enA = 26; /* BCM 12 || Physical 32 */
@@ -39,8 +39,7 @@ static void setprio(int prio, int sched) {
         perror("sched_setscheduler");
 }
 /*Configuring the PWM*/
-void config_pwm(void)
-{
+void config_pwm(void) {
     wiringPiSetup();
     /* Motor 1 */
     pinMode(enA, PWM_OUTPUT);    /*set GPIO as output */
@@ -61,7 +60,9 @@ void handler(int arg) {
 }
 
 void* receive_ctrl_msg(void* arg) {
-    setprio(RECV_PRIO, SCHED_RR);
+    if (flag) {
+        setprio(RECV_PRIO, SCHED_RR);
+    }
     struct sockaddr_in* to_addr = (struct sockaddr_in*)arg;
     struct ctrl_msg* msg = (struct ctrl_msg*)malloc(sizeof(struct ctrl_msg));
     while (keep_running) {
@@ -124,7 +125,9 @@ void* receive_ctrl_msg(void* arg) {
 }
 
 void* send_video(void* arg) {
-    setprio(SEND_PRIO, SCHED_RR);
+    if (flag) {
+        setprio(SEND_PRIO, SCHED_RR);
+    }
     struct sockaddr_in* to_addr = (struct sockaddr_in*)arg;
     int bytes;
 
@@ -209,11 +212,8 @@ int main(int argc, char** argv) {
     std::ofstream myFile4("sendVideoCPU.csv");
     myFile4<<"";
 
-    /* check command line arguments */
-    if (argc != 3) {
-        fprintf(stderr, "usage: %s destination port\n", argv[0]);
-        exit(1);
-    }
+    fprintf(stderr, "To run RT-implementation: %s destination port rt\n", argv[0]);
+    fprintf(stderr, "To run non RT-implementation: %s destination port\n", argv[0]);
 
     /* get IP address of client*/
     struct hostent* host = gethostbyname(argv[1]);
@@ -262,16 +262,21 @@ int main(int argc, char** argv) {
 
     pthread_t send_thread, receive_thread;
     pthread_attr_t recv_attr, send_attr;
-    
-    if (pthread_attr_init(&send_attr)) {
-        printf("error send_attr init\n");
-    }
-    if (pthread_attr_init(&recv_attr)) {
-        printf("error recv_attr init\n");
+    if (strncmp(argv[3],"r",1) == 0) {
+        if (pthread_attr_init(&send_attr)) {
+            printf("error send_attr init\n");
+        }
+        if (pthread_attr_init(&recv_attr)) {
+            printf("error recv_attr init\n");
+        }
+        pthread_create(&receive_thread, &recv_attr, receive_ctrl_msg, &to_addr); 
+        pthread_create(&send_thread, &send_attr, send_video, &to_addr);
+    } else {
+        flag = false;
+        pthread_create(&receive_thread, NULL, receive_ctrl_msg, &to_addr); 
+        pthread_create(&send_thread, NULL, send_video, &to_addr);
     }
 
-    pthread_create(&receive_thread, &recv_attr, receive_ctrl_msg, &to_addr); 
-    pthread_create(&send_thread, &send_attr, send_video, &to_addr);
     pthread_join(send_thread, NULL);
     pthread_join(receive_thread, NULL);
 

@@ -136,7 +136,6 @@ void *send_ctrl_msg(void *arg) {
 void *receive_video(void *arg) {
     if (flag) {
         setprio(RECV_PRIO, SCHED_RR);
-        printf("working");
     }
     struct sockaddr_in *from_addr = (struct sockaddr_in *)arg;
     std::string encoded;
@@ -203,8 +202,9 @@ void *receive_video(void *arg) {
     return NULL;
 }
 int main(int argc, char **argv) {
-   // XInitThreads(); /* To make openCV work on debian with earlier version of openCV*/
+    XInitThreads(); /* To make openCV work on debian with earlier version of openCV*/
     signal(SIGINT, handler); /* handles ctrl+C signal */
+
     int bytes;
     int port_nr;
     struct sockaddr_in to_addr;
@@ -222,7 +222,7 @@ int main(int argc, char **argv) {
 
 
 
-    fprintf(stderr, "To run RT-implementation: %s destination port -r\n", argv[0]);
+    fprintf(stderr, "To run RT-implementation: %s destination port rt\n", argv[0]);
     fprintf(stderr, "To run non RT-implementation: %s destination port\n", argv[0]);
 
 
@@ -273,10 +273,8 @@ int main(int argc, char **argv) {
 
     pthread_t receive_thread, send_thread;
     pthread_attr_t recv_attr, send_attr;
-    char cmp_str[1];
-    cmp_str[0] = 'r';
     
-    if (strncmp(argv[3],cmp_str, 1) == 0) {
+    if (strncmp(argv[3],"r",1) == 0) {
         if (pthread_attr_init(&send_attr)) {
             printf("error send_attr init\n");
         }
@@ -286,6 +284,7 @@ int main(int argc, char **argv) {
         pthread_create(&send_thread, &send_attr, send_ctrl_msg, &to_addr);
         pthread_create(&receive_thread, &recv_attr, receive_video, &to_addr);
     } else {
+        flag = false;
         pthread_create(&send_thread, NULL, send_ctrl_msg, &to_addr);
         pthread_create(&receive_thread, NULL, receive_video, &to_addr);  
     }
